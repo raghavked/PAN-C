@@ -4,6 +4,7 @@ import { elevenLabsService } from '../services/elevenLabsService';
 import { backboardService } from '../services/backboardService';
 import { geminiService } from '../services/geminiService';
 import { solanaService } from '../services/solanaService';
+import { twilioService } from '../services/twilioService';
 
 interface PanicState {
   isActive: boolean;
@@ -108,7 +109,15 @@ export const usePanic = (): UsePanicReturn => {
     });
     console.log('[usePanic] Solana memo ready for on-chain logging:', memo);
 
-    // 7. Fetch Gemini rights reminder in background
+    // 7. Send real SMS alerts to all emergency contacts via Twilio
+    twilioService.sendPanicAlerts({
+      contacts: MOCK_CONTACTS,
+      incidentId: newIncidentId,
+      userName: 'Alex', // Replace with real auth user name
+      location,
+    }).catch((e) => console.warn('[usePanic] Twilio SMS failed:', e));
+
+    // 8. Fetch Gemini rights reminder in background
     geminiService.getRightsReminder('English').then((reminder) => {
       setPanicState((prev) => ({ ...prev, rightsReminder: reminder }));
     }).catch((e) => console.warn('[usePanic] Gemini rights reminder failed:', e));
@@ -142,6 +151,13 @@ export const usePanic = (): UsePanicReturn => {
       date: now.toISOString(),
     }).catch((e) => console.warn('[usePanic] Backboard disarm memory failed:', e));
 
+    // Send all-clear SMS to all contacts via Twilio
+    twilioService.sendAllClearAlerts({
+      contacts: MOCK_CONTACTS,
+      incidentId,
+      userName: 'Alex',
+    }).catch((e) => console.warn('[usePanic] Twilio all-clear SMS failed:', e));
+
     // Log disarm to Solana
     const memo = solanaService.buildIncidentMemo({
       incidentId,
@@ -166,8 +182,14 @@ export const usePanic = (): UsePanicReturn => {
 
   const checkIn = useCallback(() => {
     setPanicState((prev) => ({ ...prev, timer: 135 }));
+    // Send check-in SMS so contacts know the person is still okay
+    twilioService.sendCheckInAlert({
+      contacts: MOCK_CONTACTS,
+      userName: 'Alex',
+      incidentId: panicState.incidentId,
+    }).catch((e) => console.warn('[usePanic] Twilio check-in SMS failed:', e));
     console.log('✅ Check-in recorded');
-  }, []);
+  }, [panicState.incidentId]);
 
   return { ...panicState, triggerPanic, disarmPanic, checkIn };
 };
