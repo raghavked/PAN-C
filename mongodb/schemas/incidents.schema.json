@@ -1,0 +1,134 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "title": "PAN-C Incident",
+    "description": "A panic incident record — created when the panic button is triggered",
+    "required": ["incidentId", "userId", "status", "triggeredAt", "createdAt", "updatedAt"],
+    "additionalProperties": false,
+    "properties": {
+      "_id": {
+        "bsonType": "objectId"
+      },
+      "incidentId": {
+        "bsonType": "string",
+        "description": "Human-readable incident ID (e.g. INC-AB1234-XYZ)",
+        "pattern": "^INC-[A-Z0-9]{6}-[A-Z0-9]{3}$"
+      },
+      "userId": {
+        "bsonType": "string",
+        "description": "User who triggered the panic — foreign key to users collection"
+      },
+      "status": {
+        "bsonType": "string",
+        "enum": ["active", "disarmed", "auto_escalated", "resolved"],
+        "description": "Current state of the incident"
+      },
+      "triggeredAt": {
+        "bsonType": "date",
+        "description": "Timestamp when the panic button was pressed"
+      },
+      "disarmedAt": {
+        "bsonType": "date",
+        "description": "Timestamp when the panic was disarmed (null if still active)"
+      },
+      "resolvedAt": {
+        "bsonType": "date",
+        "description": "Timestamp when the incident was fully resolved"
+      },
+      "location": {
+        "bsonType": "object",
+        "description": "GPS coordinates at time of trigger",
+        "properties": {
+          "latitude": {
+            "bsonType": "double",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "bsonType": "double",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracy": {
+            "bsonType": "double",
+            "description": "GPS accuracy in meters"
+          },
+          "address": {
+            "bsonType": "string",
+            "description": "Reverse-geocoded human-readable address"
+          }
+        }
+      },
+      "contactsNotified": {
+        "bsonType": "array",
+        "description": "List of contacts who were notified and the result",
+        "items": {
+          "bsonType": "object",
+          "required": ["contactId", "name", "notifiedAt"],
+          "properties": {
+            "contactId": { "bsonType": "string" },
+            "name": { "bsonType": "string" },
+            "notifiedAt": { "bsonType": "date" },
+            "methods": {
+              "bsonType": "array",
+              "items": {
+                "bsonType": "object",
+                "properties": {
+                  "channel": {
+                    "bsonType": "string",
+                    "enum": ["SMS", "Email", "Push"]
+                  },
+                  "status": {
+                    "bsonType": "string",
+                    "enum": ["sent", "delivered", "failed", "pending"]
+                  },
+                  "messageId": { "bsonType": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "checkIns": {
+        "bsonType": "array",
+        "description": "Log of check-in events during the incident",
+        "items": {
+          "bsonType": "object",
+          "properties": {
+            "checkedInAt": { "bsonType": "date" },
+            "location": {
+              "bsonType": "object",
+              "properties": {
+                "latitude": { "bsonType": "double" },
+                "longitude": { "bsonType": "double" }
+              }
+            }
+          }
+        }
+      },
+      "solanaSignature": {
+        "bsonType": "string",
+        "description": "Solana transaction signature for the on-chain incident log"
+      },
+      "backboardMemoryId": {
+        "bsonType": "string",
+        "description": "Backboard.io memory ID for the AI context record of this incident"
+      },
+      "rightsReminder": {
+        "bsonType": "string",
+        "description": "Gemini-generated legal rights reminder shown during the incident"
+      },
+      "notes": {
+        "bsonType": "string",
+        "maxLength": 2000,
+        "description": "User or admin notes about the incident"
+      },
+      "createdAt": {
+        "bsonType": "date"
+      },
+      "updatedAt": {
+        "bsonType": "date"
+      }
+    }
+  }
+}

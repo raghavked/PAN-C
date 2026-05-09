@@ -87,14 +87,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onPanic, isPanicActive, 
 
       <PanicButton onPress={onPanic} isActive={isPanicActive} />
 
-      <Card onClick={() => onNavigate('map')}>
-        <div style={cardHeaderStyle}>
-          <span style={cardTitleStyle}>🗺️ Activity Heat Map</span>
-          <StatusBadge label="2 Reports" status="active" />
-        </div>
-        <p style={cardTextStyle}>Recent ICE activity reported in your area</p>
-      </Card>
-
       <Card onClick={() => onNavigate('documents')}>
         <div style={cardHeaderStyle}>
           <span style={cardTitleStyle}>📄 Documents</span>

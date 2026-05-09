@@ -1,4 +1,5 @@
-import React, { useState, CSSProperties } from 'react';
+import React, { useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Header } from './components/common/Header';
 import { TabBar } from './components/common/TabBar';
 import { HomeScreen } from './screens/HomeScreen';
@@ -8,11 +9,10 @@ import { DocumentsScreen } from './screens/DocumentsScreen';
 import { usePanic } from './hooks/usePanic';
 import { colors } from './theme';
 
-type Screen = 'home' | 'panic' | 'contacts' | 'documents' | 'map';
+type Screen = 'home' | 'panic' | 'contacts' | 'documents';
 
 const TABS = [
   { key: 'home', label: 'Home', icon: '🏠' },
-  { key: 'map', label: 'Map', icon: '🗺️' },
   { key: 'documents', label: 'Docs', icon: '📄' },
   { key: 'contacts', label: 'Contacts', icon: '👥' },
 ];
@@ -22,7 +22,6 @@ const SCREEN_TITLES: Record<Screen, string> = {
   panic: '🚨 Emergency Active',
   contacts: 'Emergency Contacts',
   documents: 'Document Vault',
-  map: 'Activity Map',
 };
 
 export default function App() {
@@ -71,11 +70,7 @@ export default function App() {
   };
 
   const handleTabChange = (key: string) => {
-    if (key === 'map') {
-      setCurrentScreen('map');
-    } else {
-      setCurrentScreen(key as Screen);
-    }
+    setCurrentScreen(key as Screen);
   };
 
   const activeTabKey = currentScreen === 'panic' ? 'home' : currentScreen;
@@ -101,8 +96,6 @@ export default function App() {
         return <ContactsScreen />;
       case 'documents':
         return <DocumentsScreen />;
-      case 'map':
-        return <MapPlaceholder />;
       default:
         return null;
     }
@@ -136,34 +129,3 @@ export default function App() {
     </div>
   );
 }
-
-// Map placeholder screen
-const MapPlaceholder: React.FC = () => {
-  const style: CSSProperties = {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    gap: 16,
-    color: colors.onSurfaceVariant,
-    fontFamily: "'Atkinson Hyperlegible', system-ui, sans-serif",
-    textAlign: 'center',
-  };
-
-  return (
-    <div style={style}>
-      <span style={{ fontSize: 64 }}>🗺️</span>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: colors.onSurface }}>
-        Activity Heat Map
-      </h2>
-      <p style={{ fontSize: '1rem', lineHeight: '1.5rem' }}>
-        Real-time ICE activity reports from your community will appear here.
-      </p>
-      <p style={{ fontSize: '0.875rem', color: colors.primary }}>
-        Coming in next sprint →
-      </p>
-    </div>
-  );
-};

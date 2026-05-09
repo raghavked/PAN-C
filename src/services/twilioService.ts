@@ -98,7 +98,7 @@ export const twilioService = {
     location?: { lat: number; lng: number };
   }): Promise<SMSResult[]> {
     const locationText = payload.location
-      ? `\nLocation: https://maps.google.com/?q=${payload.location.lat},${payload.location.lng}`
+      ? `\nGPS: ${payload.location.lat}, ${payload.location.lng}`
       : '';
 
     const message =

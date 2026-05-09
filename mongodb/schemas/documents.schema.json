@@ -1,0 +1,106 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "title": "PAN-C Document",
+    "description": "An identity or legal document stored in the user's document vault",
+    "required": ["documentId", "userId", "type", "name", "status", "createdAt", "updatedAt"],
+    "additionalProperties": false,
+    "properties": {
+      "_id": {
+        "bsonType": "objectId"
+      },
+      "documentId": {
+        "bsonType": "string",
+        "description": "Unique document identifier (UUID v4)"
+      },
+      "userId": {
+        "bsonType": "string",
+        "description": "Owner user's ID — foreign key to users collection"
+      },
+      "type": {
+        "bsonType": "string",
+        "description": "Type of identity document",
+        "enum": [
+          "Passport",
+          "Work Visa",
+          "Student Visa",
+          "Tourist Visa",
+          "Green Card",
+          "State ID",
+          "Driver License",
+          "Birth Certificate",
+          "Social Security Card",
+          "DACA Card",
+          "TPS Card",
+          "Employment Authorization",
+          "I-94",
+          "Consular ID",
+          "Other"
+        ]
+      },
+      "name": {
+        "bsonType": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "description": "Display name for the document (e.g. 'US Passport', 'H-1B Visa')"
+      },
+      "icon": {
+        "bsonType": "string",
+        "maxLength": 10,
+        "description": "Emoji icon for display (e.g. 🛂, 📝, 🆔)"
+      },
+      "idNumber": {
+        "bsonType": "string",
+        "maxLength": 50,
+        "description": "Document ID or reference number"
+      },
+      "issuingCountry": {
+        "bsonType": "string",
+        "maxLength": 50,
+        "description": "Country that issued the document"
+      },
+      "issuingAuthority": {
+        "bsonType": "string",
+        "maxLength": 100,
+        "description": "Agency or authority that issued the document"
+      },
+      "issueDate": {
+        "bsonType": "date",
+        "description": "Date the document was issued"
+      },
+      "expiryDate": {
+        "bsonType": "date",
+        "description": "Date the document expires (null if no expiry)"
+      },
+      "status": {
+        "bsonType": "string",
+        "enum": ["ready", "expiring", "expired", "pending"],
+        "description": "Current status of the document — computed from expiryDate"
+      },
+      "fileUrl": {
+        "bsonType": "string",
+        "description": "URL to the stored document file (S3 or GridFS) — encrypted at rest"
+      },
+      "thumbnailUrl": {
+        "bsonType": "string",
+        "description": "URL to a thumbnail preview of the document"
+      },
+      "isSharedOnPanic": {
+        "bsonType": "bool",
+        "description": "Whether to include this document in panic alert notifications",
+        "default": true
+      },
+      "notes": {
+        "bsonType": "string",
+        "maxLength": 500,
+        "description": "Optional notes about this document"
+      },
+      "createdAt": {
+        "bsonType": "date"
+      },
+      "updatedAt": {
+        "bsonType": "date"
+      }
+    }
+  }
+}
