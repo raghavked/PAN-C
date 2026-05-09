@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { mongoService } from '../services/mongoService';
 import { elevenLabsService } from '../services/elevenLabsService';
-import { blackboardService } from '../services/blackboardService';
+import { backboardService } from '../services/backboardService';
 import { geminiService } from '../services/geminiService';
 import { solanaService } from '../services/solanaService';
 
@@ -91,11 +91,13 @@ export const usePanic = (): UsePanicReturn => {
       contactsNotified: MOCK_CONTACTS.length,
     }).catch((e) => console.warn('[usePanic] MongoDB log failed:', e));
 
-    // 5. Trigger Blackboard LMS emergency announcement to course community
-    blackboardService.triggerEmergencyAnnouncement(
-      newIncidentId,
-      location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : undefined
-    ).catch((e) => console.warn('[usePanic] Blackboard announcement failed:', e));
+    // 5. Save incident to Backboard long-term memory for future AI context
+    backboardService.saveIncidentMemory({
+      incidentId: newIncidentId,
+      outcome: 'active',
+      date: now.toISOString(),
+      notes: location ? `Location: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : undefined,
+    }).catch((e) => console.warn('[usePanic] Backboard memory save failed:', e));
 
     // 6. Log incident hash to Solana (tamper-proof record)
     const memo = solanaService.buildIncidentMemo({
@@ -133,11 +135,12 @@ export const usePanic = (): UsePanicReturn => {
       disarmedAt: now.toISOString(),
     }).catch((e) => console.warn('[usePanic] MongoDB disarm update failed:', e));
 
-    // Post Blackboard all-clear announcement
-    blackboardService.postCourseAnnouncement({
-      title: `✅ Safety Update — Incident ${incidentId} Resolved`,
-      body: `The emergency alert for incident ${incidentId} has been cleared. The person is safe.`,
-    }).catch((e) => console.warn('[usePanic] Blackboard disarm announcement failed:', e));
+    // Update Backboard long-term memory with disarm outcome
+    backboardService.saveIncidentMemory({
+      incidentId,
+      outcome: 'disarmed — person is safe',
+      date: now.toISOString(),
+    }).catch((e) => console.warn('[usePanic] Backboard disarm memory failed:', e));
 
     // Log disarm to Solana
     const memo = solanaService.buildIncidentMemo({

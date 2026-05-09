@@ -3,5 +3,5 @@ export { panicService } from './panicService';
 export { mongoService } from './mongoService';
 export { elevenLabsService } from './elevenLabsService';
 export { geminiService } from './geminiService';
-export { blackboardService } from './blackboardService';
+export { backboardService } from './backboardService';
 export { solanaService } from './solanaService';
