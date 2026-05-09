@@ -1,8 +1,9 @@
 run = "npm run dev"
 entrypoint = "src/main.tsx"
+modules = ["nodejs-20", "web", "nix"]
 
 [nix]
-channel = "stable-23_11"
+channel = "stable-25_05"
 
 [deployment]
 run = ["sh", "-c", "npm run build && npm run preview"]
