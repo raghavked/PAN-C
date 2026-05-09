@@ -1,44 +1,45 @@
 /**
- * mongoService.ts
- * MongoDB Atlas Data API — stores incidents, contacts, and documents.
+ * mongoService.ts (React Native / Expo version)
+ * MongoDB Atlas — stores incidents, contacts, and documents.
  *
- * Required secrets (Replit → Secrets):
- *   VITE_MONGODB_DATA_API_URL   — e.g. https://data.mongodb-api.com/app/<App-ID>/endpoint/data/v1
- *   VITE_MONGODB_API_KEY        — Data API key from Atlas UI → App Services → API Keys
- *   VITE_MONGODB_DATABASE       — e.g. "pan_c"
- *   VITE_MONGODB_DATA_SOURCE    — e.g. "Cluster0"
+ * ⚠️  The Atlas Data API was permanently shut down on September 30, 2025.
+ *
+ * Current architecture (2025/2026):
+ *   - The mongodb+srv:// connection string is used SERVER-SIDE ONLY
+ *     in your Node.js/Express backend (never in a mobile app bundle).
+ *   - This service calls your backend REST API, which uses the
+ *     official MongoDB Node.js driver (v6+) to talk to Atlas.
+ *
+ * Required env vars:
+ *   Backend server (.env — NOT in the app bundle):
+ *     MONGODB_URI        — mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/
+ *                          Get from: cloud.mongodb.com → cluster → Connect
+ *                          → Drivers → Node.js v5.5 or later
+ *     MONGODB_DATABASE   — e.g. "pan_c"
+ *
+ *   Mobile app (.env with EXPO_PUBLIC_ prefix):
+ *     EXPO_PUBLIC_API_URL — URL of your backend, e.g. https://pan-c-api.railway.app/api
  */
 
-const BASE_URL = process.env.EXPO_PUBLIC_MONGODB_DATA_API_URL;
-const API_KEY  = process.env.EXPO_PUBLIC_MONGODB_API_KEY;
-const DATABASE = process.env.EXPO_PUBLIC_MONGODB_DATABASE || 'pan_c';
-const DATA_SRC = process.env.EXPO_PUBLIC_MONGODB_DATA_SOURCE || 'Cluster0';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 interface MongoDocument {
   [key: string]: unknown;
 }
 
-async function mongoRequest(action: string, collection: string, body: MongoDocument) {
-  if (!BASE_URL || !API_KEY) {
-    console.warn('[mongoService] Missing VITE_MONGODB_DATA_API_URL or VITE_MONGODB_API_KEY — using stub');
+async function apiRequest(path: string, method: string, body?: MongoDocument) {
+  if (!API_URL) {
+    console.warn('[mongoService] Missing EXPO_PUBLIC_API_URL — running in stub mode');
     return { document: null, documents: [], insertedId: 'stub-id' };
   }
 
-  const res = await fetch(`${BASE_URL}/action/${action}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'api-key': API_KEY,
-    },
-    body: JSON.stringify({
-      dataSource: DATA_SRC,
-      database: DATABASE,
-      collection,
-      ...body,
-    }),
+  const res = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
   });
 
-  if (!res.ok) throw new Error(`MongoDB ${action} failed: ${res.status}`);
+  if (!res.ok) throw new Error(`API ${method} ${path} failed: ${res.status}`);
   return res.json();
 }
 
@@ -47,55 +48,40 @@ async function mongoRequest(action: string, collection: string, body: MongoDocum
 export const mongoService = {
   /** Insert a new panic incident record */
   async createIncident(incident: MongoDocument) {
-    return mongoRequest('insertOne', 'incidents', { document: incident });
+    return apiRequest('/incidents', 'POST', incident);
   },
 
   /** Update incident status (e.g. disarmed) */
   async updateIncident(incidentId: string, update: MongoDocument) {
-    return mongoRequest('updateOne', 'incidents', {
-      filter: { incidentId },
-      update: { $set: update },
-    });
+    return apiRequest(`/incidents/${incidentId}`, 'PATCH', update);
   },
 
   /** Fetch a single incident by ID */
   async getIncident(incidentId: string) {
-    return mongoRequest('findOne', 'incidents', {
-      filter: { incidentId },
-    });
+    return apiRequest(`/incidents/${incidentId}`, 'GET');
   },
 
   // ── Contacts ──────────────────────────────────────────────────────────────
 
   /** Save or update an emergency contact */
   async upsertContact(userId: string, contact: MongoDocument) {
-    return mongoRequest('updateOne', 'contacts', {
-      filter: { userId, 'contact.id': contact['id'] },
-      update: { $set: { userId, contact } },
-      upsert: true,
-    });
+    return apiRequest(`/contacts/${userId}`, 'PUT', contact);
   },
 
   /** Get all contacts for a user */
   async getContacts(userId: string) {
-    return mongoRequest('find', 'contacts', {
-      filter: { userId },
-    });
+    return apiRequest(`/contacts/${userId}`, 'GET');
   },
 
   // ── Documents ─────────────────────────────────────────────────────────────
 
-  /** Store document metadata (not the file itself — use S3/Supabase for files) */
+  /** Store document metadata (not the file itself — use S3/GridFS for files) */
   async saveDocument(userId: string, doc: MongoDocument) {
-    return mongoRequest('insertOne', 'documents', {
-      document: { userId, ...doc, createdAt: new Date().toISOString() },
-    });
+    return apiRequest('/documents', 'POST', { userId, ...doc, createdAt: new Date().toISOString() });
   },
 
   /** Get all documents for a user */
   async getDocuments(userId: string) {
-    return mongoRequest('find', 'documents', {
-      filter: { userId },
-    });
+    return apiRequest(`/documents/${userId}`, 'GET');
   },
 };
