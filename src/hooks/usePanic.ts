@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { mongoService } from '../services/mongoService';
 import { elevenLabsService } from '../services/elevenLabsService';
-import { blackbirdService } from '../services/blackbirdService';
+import { blackboardService } from '../services/blackboardService';
 import { geminiService } from '../services/geminiService';
 import { solanaService } from '../services/solanaService';
 
@@ -91,15 +91,11 @@ export const usePanic = (): UsePanicReturn => {
       contactsNotified: MOCK_CONTACTS.length,
     }).catch((e) => console.warn('[usePanic] MongoDB log failed:', e));
 
-    // 5. Trigger Blackbird.io notification workflow (SMS + Email to all contacts)
-    blackbirdService.triggerPanicWorkflow({
-      incidentId: newIncidentId,
-      userName: 'Alex',
-      contacts: MOCK_CONTACTS,
-      location,
-      timestamp: now.toISOString(),
-      alertMessage: 'EMERGENCY: I may be in danger. Please help.',
-    }).catch((e) => console.warn('[usePanic] Blackbird workflow failed:', e));
+    // 5. Trigger Blackboard LMS emergency announcement to course community
+    blackboardService.triggerEmergencyAnnouncement(
+      newIncidentId,
+      location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : undefined
+    ).catch((e) => console.warn('[usePanic] Blackboard announcement failed:', e));
 
     // 6. Log incident hash to Solana (tamper-proof record)
     const memo = solanaService.buildIncidentMemo({
@@ -137,13 +133,11 @@ export const usePanic = (): UsePanicReturn => {
       disarmedAt: now.toISOString(),
     }).catch((e) => console.warn('[usePanic] MongoDB disarm update failed:', e));
 
-    // Trigger Blackbird all-clear workflow
-    blackbirdService.triggerDisarmWorkflow({
-      incidentId,
-      userName: 'Alex',
-      contacts: MOCK_CONTACTS,
-      timestamp: now.toISOString(),
-    }).catch((e) => console.warn('[usePanic] Blackbird disarm workflow failed:', e));
+    // Post Blackboard all-clear announcement
+    blackboardService.postCourseAnnouncement({
+      title: `✅ Safety Update — Incident ${incidentId} Resolved`,
+      body: `The emergency alert for incident ${incidentId} has been cleared. The person is safe.`,
+    }).catch((e) => console.warn('[usePanic] Blackboard disarm announcement failed:', e));
 
     // Log disarm to Solana
     const memo = solanaService.buildIncidentMemo({
