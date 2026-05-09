@@ -1,4 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
+import { mongoService } from '../services/mongoService';
+import { elevenLabsService } from '../services/elevenLabsService';
+import { blackbirdService } from '../services/blackbirdService';
+import { geminiService } from '../services/geminiService';
+import { solanaService } from '../services/solanaService';
 
 interface PanicState {
   isActive: boolean;
@@ -6,6 +11,7 @@ interface PanicState {
   incidentId: string;
   timer: number;
   triggeredAt: Date | null;
+  rightsReminder: string;
 }
 
 interface UsePanicReturn extends PanicState {
@@ -14,6 +20,23 @@ interface UsePanicReturn extends PanicState {
   checkIn: () => void;
 }
 
+// Mock contacts — replace with real data from MongoDB contacts collection
+const MOCK_CONTACTS = [
+  { name: 'Maria Garcia', phone: '+15551234567', email: 'maria@example.com' },
+  { name: 'Carlos Lopez', phone: '+15559876543', email: 'carlos@example.com' },
+  { name: 'Ana Rodriguez', phone: '+15554567890', email: 'ana@example.com' },
+  { name: 'RAICES Hotline', phone: '+18885877777', email: 'legal@raices.org' },
+];
+
+const generateIncidentId = (): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const p1 = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const p2 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `INC-${p1}-${p2}`;
+};
+
+let activeAudio: HTMLAudioElement | null = null;
+
 export const usePanic = (): UsePanicReturn => {
   const [panicState, setPanicState] = useState<PanicState>({
     isActive: false,
@@ -21,116 +44,133 @@ export const usePanic = (): UsePanicReturn => {
     incidentId: '',
     timer: 0,
     triggeredAt: null,
+    rightsReminder: '',
   });
-
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const generateIncidentId = (): string => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    const part1 = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    const part2 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    return `INC-${part1}-${part2}`;
-  };
 
   const triggerPanic = useCallback(async (): Promise<string> => {
     const newIncidentId = generateIncidentId();
+    const now = new Date();
 
-    // Update panic state
+    // 1. Set local state immediately (fast UI response)
     setPanicState({
       isActive: true,
-      contactsNotified: 4,
+      contactsNotified: MOCK_CONTACTS.length,
       incidentId: newIncidentId,
       timer: 135,
-      triggeredAt: new Date(),
+      triggeredAt: now,
+      rightsReminder: '',
     });
 
-    // Attempt to play audio alert using Web Audio API
-    try {
-      const AudioContext = window.AudioContext || (window as unknown as { webkitAudioContext: typeof window.AudioContext }).webkitAudioContext;
-      if (AudioContext) {
-        const ctx = new AudioContext();
-        const playBeep = (freq: number, startTime: number, duration: number) => {
-          const oscillator = ctx.createOscillator();
-          const gainNode = ctx.createGain();
-          oscillator.connect(gainNode);
-          gainNode.connect(ctx.destination);
-          oscillator.frequency.setValueAtTime(freq, startTime);
-          gainNode.gain.setValueAtTime(0.3, startTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-          oscillator.start(startTime);
-          oscillator.stop(startTime + duration);
-        };
-        // Play SOS pattern: 3 short, 3 long, 3 short
-        const now = ctx.currentTime;
-        [0, 0.3, 0.6].forEach((t) => playBeep(880, now + t, 0.2));
-        [1.0, 1.5, 2.0].forEach((t) => playBeep(440, now + t, 0.4));
-        [2.6, 2.9, 3.2].forEach((t) => playBeep(880, now + t, 0.2));
-      }
-    } catch (err) {
-      console.warn('Audio playback not available:', err);
-    }
-
-    // Attempt geolocation capture
+    // 2. Capture geolocation
+    let location: { lat: number; lng: number } | undefined;
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log('📍 Location captured:', position.coords.latitude, position.coords.longitude);
-          // TODO: Send to panicService.triggerPanic()
-        },
-        (err) => {
-          console.warn('Location unavailable:', err.message);
-        }
-      );
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            resolve();
+          },
+          () => resolve(),
+          { timeout: 3000 }
+        );
+      });
     }
 
-    // Log to console (API stub)
-    console.log('🚨 PANIC TRIGGERED:', {
-      incidentId: newIncidentId,
-      timestamp: new Date().toISOString(),
-      contactsNotified: 4,
+    // 3. Play ElevenLabs AI voice alert (falls back to Web Audio beep if no key)
+    elevenLabsService.playPanicAlert().then((audio) => {
+      activeAudio = audio;
     });
 
+    // 4. Log incident to MongoDB
+    mongoService.createIncident({
+      incidentId: newIncidentId,
+      userId: 'user-alex-001', // Replace with real auth user ID
+      timestamp: now.toISOString(),
+      location,
+      status: 'active',
+      contactsNotified: MOCK_CONTACTS.length,
+    }).catch((e) => console.warn('[usePanic] MongoDB log failed:', e));
+
+    // 5. Trigger Blackbird.io notification workflow (SMS + Email to all contacts)
+    blackbirdService.triggerPanicWorkflow({
+      incidentId: newIncidentId,
+      userName: 'Alex',
+      contacts: MOCK_CONTACTS,
+      location,
+      timestamp: now.toISOString(),
+      alertMessage: 'EMERGENCY: I may be in danger. Please help.',
+    }).catch((e) => console.warn('[usePanic] Blackbird workflow failed:', e));
+
+    // 6. Log incident hash to Solana (tamper-proof record)
+    const memo = solanaService.buildIncidentMemo({
+      incidentId: newIncidentId,
+      userId: 'hashed-user-001', // Always hash PII before on-chain logging
+      timestamp: now.toISOString(),
+      status: 'active',
+    });
+    console.log('[usePanic] Solana memo ready for on-chain logging:', memo);
+
+    // 7. Fetch Gemini rights reminder in background
+    geminiService.getRightsReminder('English').then((reminder) => {
+      setPanicState((prev) => ({ ...prev, rightsReminder: reminder }));
+    }).catch((e) => console.warn('[usePanic] Gemini rights reminder failed:', e));
+
+    console.log('🚨 PANIC TRIGGERED:', { incidentId: newIncidentId, timestamp: now.toISOString() });
     return newIncidentId;
   }, []);
 
   const disarmPanic = useCallback(async (safePhrase: string): Promise<boolean> => {
-    // In production: verify against API
-    // For MVP: accept 'test' or any non-empty phrase
-    if (safePhrase.trim().length > 0) {
-      // Stop audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+    if (!safePhrase.trim()) return false;
 
-      setPanicState({
-        isActive: false,
-        contactsNotified: 0,
-        incidentId: '',
-        timer: 0,
-        triggeredAt: null,
-      });
-
-      console.log('✅ Panic disarmed with phrase:', safePhrase);
-      return true;
+    // Stop audio
+    if (activeAudio) {
+      activeAudio.pause();
+      activeAudio = null;
     }
 
-    console.log('❌ Empty safe phrase — disarm rejected');
-    return false;
-  }, []);
+    const { incidentId } = panicState;
+    const now = new Date();
+
+    // Update MongoDB incident status
+    mongoService.updateIncident(incidentId, {
+      status: 'disarmed',
+      disarmedAt: now.toISOString(),
+    }).catch((e) => console.warn('[usePanic] MongoDB disarm update failed:', e));
+
+    // Trigger Blackbird all-clear workflow
+    blackbirdService.triggerDisarmWorkflow({
+      incidentId,
+      userName: 'Alex',
+      contacts: MOCK_CONTACTS,
+      timestamp: now.toISOString(),
+    }).catch((e) => console.warn('[usePanic] Blackbird disarm workflow failed:', e));
+
+    // Log disarm to Solana
+    const memo = solanaService.buildIncidentMemo({
+      incidentId,
+      userId: 'hashed-user-001',
+      timestamp: now.toISOString(),
+      status: 'disarmed',
+    });
+    console.log('[usePanic] Solana disarm memo:', memo);
+
+    setPanicState({
+      isActive: false,
+      contactsNotified: 0,
+      incidentId: '',
+      timer: 0,
+      triggeredAt: null,
+      rightsReminder: '',
+    });
+
+    console.log('✅ Panic disarmed');
+    return true;
+  }, [panicState]);
 
   const checkIn = useCallback(() => {
-    setPanicState((prev) => ({
-      ...prev,
-      timer: 135, // Reset timer on check-in
-    }));
+    setPanicState((prev) => ({ ...prev, timer: 135 }));
     console.log('✅ Check-in recorded');
   }, []);
 
-  return {
-    ...panicState,
-    triggerPanic,
-    disarmPanic,
-    checkIn,
-  };
+  return { ...panicState, triggerPanic, disarmPanic, checkIn };
 };
