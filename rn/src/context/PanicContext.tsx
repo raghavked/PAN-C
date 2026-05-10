@@ -71,15 +71,24 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
       return incidentIdRef.current;
     }
     isTriggeringRef.current = true;
-
     const now = new Date();
 
-    // ── Fire sound IMMEDIATELY on button press, before any async work ──
-    // elevenLabsService has its own internal guard, so this is safe to call
+    // ── Switch to PanicActiveScreen INSTANTLY — before any async work ──
+    setState({
+      isActive: true,
+      contactsNotified: 0,
+      incidentId: 'TRIGGERING...',
+      timer: TIMER_START,
+      triggeredAt: now,
+      rightsReminder: '',
+    });
+
+    // ── Fire sound immediately ──
     elevenLabsService.playPanicAlert().then((sound) => {
       soundRef.current = sound;
     }).catch((e) => console.warn('[PanicContext] ElevenLabs failed:', e));
 
+    // ── Get location in background (non-blocking) ──
     let latitude: number | undefined;
     let longitude: number | undefined;
     let address: string | undefined;
@@ -107,15 +116,6 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
         console.warn('[PanicContext] Browser geolocation unavailable');
       }
     }
-
-    setState({
-      isActive: true,
-      contactsNotified: 0,
-      incidentId: 'TRIGGERING...',
-      timer: TIMER_START,
-      triggeredAt: now,
-      rightsReminder: '',
-    });
 
     try {
       const result = await api.post<{
