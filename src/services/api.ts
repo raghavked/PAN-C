@@ -1,5 +1,7 @@
 // PAN!C API Client — connects frontend to Express backend
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// In dev: Vite proxies /api → http://localhost:3001 (see vite.config.ts)
+// In production (Replit deploy): set VITE_API_URL to your Replit backend URL
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 function getToken(): string | null {
   return localStorage.getItem('panic_token');
