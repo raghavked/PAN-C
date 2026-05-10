@@ -3,22 +3,30 @@ import Constants from 'expo-constants';
 import { storage } from './storage';
 
 /**
- * API base URL resolution — three environments:
+ * API base URL resolution — priority order:
  *
- * 1. Native device via Expo Go tunnel:
- *    Expo sets Constants.expoConfig.hostUri to the Metro tunnel hostname,
- *    e.g. "pm0-89w-anonymous-8081.exp.direct"
- *    We use the SAME host — Metro's enhanceMiddleware proxies /api/* → localhost:3001
- *    So: https://pm0-89w-anonymous-8081.exp.direct/api/auth/login → backend
+ * 1. EXPO_PUBLIC_API_URL env var (set in rn/.env) — highest priority, most reliable.
+ *    Points directly at the backend server (not Metro), e.g.:
+ *    "https://3001-xxxx.us2.manus.computer"
  *
- * 2. Native device on LAN (expo start --lan):
- *    hostUri is "192.168.x.x:8081" — we use the same IP, same port
- *    Metro proxy handles /api forwarding
+ * 2. Native device via Expo Go tunnel (hostUri from Constants):
+ *    Only used if EXPO_PUBLIC_API_URL is not set.
+ *    NOTE: the ngrok tunnel points at Metro (8081), not the backend — so this
+ *    path only works if Metro has an /api proxy middleware.
  *
  * 3. Web (Vite dev server):
  *    Uses relative /api — Vite proxies to localhost:3001
  */
 function resolveApiBase(): string {
+  // Priority 1: explicit env var — bypasses all tunnel/hostUri ambiguity
+  const envApiUrl: string | undefined =
+    (Constants.expoConfig?.extra as Record<string, string> | undefined)?.apiUrl ??
+    (process.env as Record<string, string | undefined>).EXPO_PUBLIC_API_URL;
+
+  if (envApiUrl && envApiUrl.trim() !== '') {
+    return envApiUrl.replace(/\/$/, ''); // strip trailing slash
+  }
+
   if (Platform.OS !== 'web') {
     const hostUri: string | undefined =
       (Constants.expoConfig as { hostUri?: string } | null)?.hostUri ??
