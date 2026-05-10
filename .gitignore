@@ -8,12 +8,25 @@ dist/
 build/
 .vite/
 
-# Environment files — NEVER push any .env files (including .env.example)
+# Environment files — NEVER push any .env files
 .env
 .env.*
 **/.env
 **/.env.*
 *.env
+
+# Firebase & service account credential files
+*-firebase-adminsdk-*.json
+service-account*.json
+firebase-credentials*.json
+*serviceAccountKey*.json
+*adminsdk*.json
+
+# Other credential files
+*.pem
+*.key
+secrets/
+credentials/
 
 # IDE
 .vscode/
