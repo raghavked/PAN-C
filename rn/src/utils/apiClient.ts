@@ -9,15 +9,24 @@ function buildApiBase(): string {
   }
 
   // Native (phone): we need an absolute URL.
-  // In Expo Go, Constants.linkingUri contains the Metro server URL, e.g.:
-  //   tunnel: "exp://pm0-89w-anonymous-5000.exp.direct"
-  //   LAN:    "exp://192.168.1.x:5000"
-  // The Metro server has a proxy middleware that forwards /api/* to the backend,
-  // so hitting https://<tunnel-host>/api/... works end-to-end.
+  //
+  // Primary: use Replit's own stable proxy domain (REPLIT_EXPO_DEV_DOMAIN injected
+  // via app.config.js extra). This domain is stable Replit infrastructure and does
+  // NOT rely on Expo's external tunnel service (exp.direct), which is flaky.
+  // The Metro server at that domain has a /api/* middleware → backend on port 3001.
+  const extra = Constants.expoConfig?.extra as Record<string, string> | undefined;
+  const replitDomain = extra?.replitExpoDomain;
+  if (replitDomain) {
+    return `https://${replitDomain}/api`;
+  }
+
+  // Fallback: derive from Constants.linkingUri (the Expo tunnel URL).
+  // e.g. "exp://pm0-89w-anonymous-5000.exp.direct" → "https://pm0-89w-anonymous-5000.exp.direct/api"
+  // This is less reliable because it goes through Expo's external tunnel service.
   const linkingUri: string | undefined = (Constants as any).linkingUri;
   if (linkingUri) {
     const withoutScheme = linkingUri.replace(/^exp?o?:\/\//, '');
-    const hostAndPort = withoutScheme.split('/')[0]; // strip any trailing path
+    const hostAndPort = withoutScheme.split('/')[0];
     const isIp = /^\d{1,3}\.\d{1,3}/.test(hostAndPort);
     const scheme = isIp ? 'http' : 'https';
     return `${scheme}://${hostAndPort}/api`;
@@ -35,7 +44,6 @@ function buildApiBase(): string {
     return `${scheme}://${host}${port}/api`;
   }
 
-  // Production fallback
   return '/api';
 }
 

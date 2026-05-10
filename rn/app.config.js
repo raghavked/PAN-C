@@ -40,6 +40,11 @@ module.exports = {
     },
     newArchEnabled: false,
     extra: {
+      // Replit's own stable proxy for the Metro server (port 5000).
+      // Metro has a /api/* middleware that forwards to the backend on port 3001.
+      // Using this avoids relying on Expo's external tunnel (exp.direct) for API
+      // calls, which is a third-party service that drops intermittently.
+      replitExpoDomain:    process.env.REPLIT_EXPO_DEV_DOMAIN || '',
       elevenLabsApiKey:    process.env.ELEVENLABS_API_KEY    || '',
       elevenLabsVoiceId:   process.env.ELEVENLABS_VOICE_ID   || '21m00Tcm4TlvDq8ikWAM',
       backboardApiKey:     process.env.BACKBOARD_API_KEY     || '',
