@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import { apiRequest } from '../utils/apiClient';
-import { storage } from '../utils/storage';
+import { storage, initStorage } from '../utils/storage';
 
 async function registerFcmToken(authToken: string) {
   if (Platform.OS === 'web') return;
@@ -67,6 +67,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Pre-load secure storage into memory cache on native before reading tokens
+    initStorage().then(() => {
     const stored = storage.getItem(TOKEN_KEY);
     const phrase = storage.getItem(PHRASE_KEY);
     if (phrase) setSafePhraseState(phrase);
@@ -82,6 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else {
       setIsLoading(false);
     }
+    }); // end initStorage().then
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {

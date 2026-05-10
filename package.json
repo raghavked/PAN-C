@@ -5,13 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently --names \"API,WEB\" --prefix-colors \"red,cyan\" \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:client": "vite --port 5173 --host 0.0.0.0",
+    "dev:client": "vite --port 5000 --host 0.0.0.0",
     "dev:server": "cd server && node src/index.js",
     "build": "tsc && vite build",
-    "start": "concurrently --names \"API,WEB\" --prefix-colors \"red,cyan\" \"npm run start:server\" \"npm run start:client\"",
-    "start:client": "vite preview --port 3000 --host 0.0.0.0",
+    "start": "bash start.sh",
+    "start:client": "vite preview --port 5000 --host 0.0.0.0",
     "start:server": "cd server && node src/index.js",
-    "install:all": "npm install && cd server && npm install",
+    "install:all": "npm install && cd server && npm install && cd rn && npm install",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

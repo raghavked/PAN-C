@@ -34,21 +34,37 @@ module.exports = {
           microphonePermission: false,
         },
       ],
+      'expo-secure-store',
+      'expo-clipboard',
     ],
     web: {
       bundler: 'metro',
     },
     newArchEnabled: false,
     extra: {
-      elevenLabsApiKey:    process.env.ELEVENLABS_API_KEY    || '',
-      elevenLabsVoiceId:   process.env.ELEVENLABS_VOICE_ID   || '21m00Tcm4TlvDq8ikWAM',
-      backboardApiKey:     process.env.BACKBOARD_API_KEY     || '',
-      backboardAssistantId:process.env.BACKBOARD_ASSISTANT_ID|| '',
-      twilioAccountSid:    process.env.TWILIO_ACCOUNT_SID    || '',
-      twilioAuthToken:     process.env.TWILIO_AUTH_TOKEN      || '',
-      twilioPhoneNumber:   process.env.TWILIO_PHONE_NUMBER    || '',
-      geminiApiKey:        process.env.GEMINI_API_KEY         || '',
-      geminiModel:         process.env.VITE_GEMINI_MODEL      || 'gemini-2.0-flash',
+      // API base URL — leave blank to use Metro proxy (/api → localhost:3001)
+      apiUrl: process.env.EXPO_PUBLIC_API_URL || '',
+
+      // ElevenLabs
+      elevenLabsApiKey:     process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY    || process.env.ELEVENLABS_API_KEY    || '',
+      elevenLabsVoiceId:    process.env.EXPO_PUBLIC_ELEVENLABS_VOICE_ID   || process.env.ELEVENLABS_VOICE_ID   || '21m00Tcm4TlvDq8ikWAM',
+
+      // Backboard
+      backboardApiKey:      process.env.EXPO_PUBLIC_BACKBOARD_API_KEY     || process.env.BACKBOARD_API_KEY     || '',
+      backboardAssistantId: process.env.EXPO_PUBLIC_BACKBOARD_ASSISTANT_ID|| process.env.BACKBOARD_ASSISTANT_ID|| '',
+
+      // Twilio
+      twilioAccountSid:     process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID    || process.env.TWILIO_ACCOUNT_SID    || '',
+      twilioAuthToken:      process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN     || process.env.TWILIO_AUTH_TOKEN     || '',
+      twilioPhoneNumber:    process.env.EXPO_PUBLIC_TWILIO_PHONE_NUMBER   || process.env.TWILIO_PHONE_NUMBER   || '',
+
+      // Gemini
+      geminiApiKey:         process.env.EXPO_PUBLIC_GEMINI_API_KEY        || process.env.GEMINI_API_KEY        || '',
+      geminiModel:          process.env.EXPO_PUBLIC_GEMINI_MODEL          || process.env.GEMINI_MODEL          || 'gemini-2.5-flash',
+
+      // Solana
+      solanaRpcUrl:         process.env.EXPO_PUBLIC_SOLANA_RPC_URL        || 'https://api.devnet.solana.com',
+      solanaNetwork:        process.env.EXPO_PUBLIC_SOLANA_NETWORK        || 'devnet',
     },
   },
 };
