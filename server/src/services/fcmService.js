@@ -5,23 +5,35 @@ let firebaseInitialized = false;
 function initializeFirebase() {
   if (firebaseInitialized || admin.apps.length) return;
 
-  const serviceAccount = {
-    type: 'service_account',
-    project_id: process.env.FIREBASE_PROJECT_ID,
-    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    client_email: process.env.FIREBASE_CLIENT_EMAIL ||
-      `firebase-adminsdk@${process.env.FIREBASE_PROJECT_ID}.iam.gserviceaccount.com`,
-    client_id: '',
-    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-    token_uri: 'https://oauth2.googleapis.com/token',
-  };
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+  if (!projectId || !privateKey || !clientEmail) {
+    console.warn('⚠️  Firebase credentials missing — FCM push notifications disabled');
+    return;
+  }
 
-  firebaseInitialized = true;
-  console.log('✅ Firebase Cloud Messaging initialized');
+  try {
+    const serviceAccount = {
+      type: 'service_account',
+      project_id: projectId,
+      private_key: privateKey.replace(/\\n/g, '\n'),
+      client_email: clientEmail,
+      client_id: '',
+      auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: 'https://oauth2.googleapis.com/token',
+    };
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+
+    firebaseInitialized = true;
+    console.log('✅ Firebase Cloud Messaging initialized');
+  } catch (err) {
+    console.warn('⚠️  Firebase init failed — FCM disabled:', err.message);
+  }
 }
 
 /**

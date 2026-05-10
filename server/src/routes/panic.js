@@ -8,8 +8,7 @@ const { sendToMany, initializeFirebase } = require('../services/fcmService');
 
 const router = express.Router();
 
-// Initialize Firebase on module load
-initializeFirebase();
+// Firebase is initialized lazily inside fcmService when first needed
 
 async function generateElevenLabsAudio(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
