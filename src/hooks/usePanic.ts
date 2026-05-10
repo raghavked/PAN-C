@@ -5,6 +5,7 @@ import { backboardService } from '../services/backboardService';
 import { geminiService } from '../services/geminiService';
 import { solanaService } from '../services/solanaService';
 import { twilioService } from '../services/twilioService';
+import { contactsApi } from '../services/api';
 
 interface PanicState {
   isActive: boolean;
@@ -21,13 +22,6 @@ interface UsePanicReturn extends PanicState {
   checkIn: () => void;
 }
 
-// Mock contacts — replace with real data from MongoDB contacts collection
-const MOCK_CONTACTS = [
-  { name: 'Maria Garcia', phone: '+15551234567', email: 'maria@example.com' },
-  { name: 'Carlos Lopez', phone: '+15559876543', email: 'carlos@example.com' },
-  { name: 'Ana Rodriguez', phone: '+15554567890', email: 'ana@example.com' },
-  { name: 'RAICES Hotline', phone: '+18885877777', email: 'legal@raices.org' },
-];
 
 const generateIncidentId = (): string => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -110,11 +104,14 @@ export const usePanic = (): UsePanicReturn => {
     console.log('[usePanic] Solana memo ready for on-chain logging:', memo);
 
     // 7. Send real SMS alerts to all emergency contacts via Twilio
-    twilioService.sendPanicAlerts({
-      contacts: MOCK_CONTACTS,
-      incidentId: newIncidentId,
-      userName: 'Alex', // Replace with real auth user name
-      location,
+    contactsApi.getAll().then(({ contacts }) => {
+      const smsContacts = contacts.filter(c => c.phone).map(c => ({ name: c.name, phone: c.phone }));
+      return twilioService.sendPanicAlerts({
+        contacts: smsContacts,
+        incidentId: newIncidentId,
+        userName: 'Alex',
+        location,
+      });
     }).catch((e) => console.warn('[usePanic] Twilio SMS failed:', e));
 
     // 8. Fetch Gemini rights reminder in background
@@ -152,10 +149,9 @@ export const usePanic = (): UsePanicReturn => {
     }).catch((e) => console.warn('[usePanic] Backboard disarm memory failed:', e));
 
     // Send all-clear SMS to all contacts via Twilio
-    twilioService.sendAllClearAlerts({
-      contacts: MOCK_CONTACTS,
-      incidentId,
-      userName: 'Alex',
+    contactsApi.getAll().then(({ contacts }) => {
+      const smsContacts = contacts.filter(c => c.phone).map(c => ({ name: c.name, phone: c.phone }));
+      return twilioService.sendAllClearAlerts({ contacts: smsContacts, incidentId, userName: 'Alex' });
     }).catch((e) => console.warn('[usePanic] Twilio all-clear SMS failed:', e));
 
     // Log disarm to Solana
@@ -183,10 +179,9 @@ export const usePanic = (): UsePanicReturn => {
   const checkIn = useCallback(() => {
     setPanicState((prev) => ({ ...prev, timer: 135 }));
     // Send check-in SMS so contacts know the person is still okay
-    twilioService.sendCheckInAlert({
-      contacts: MOCK_CONTACTS,
-      userName: 'Alex',
-      incidentId: panicState.incidentId,
+    contactsApi.getAll().then(({ contacts }) => {
+      const smsContacts = contacts.filter(c => c.phone).map(c => ({ name: c.name, phone: c.phone }));
+      return twilioService.sendCheckInAlert({ contacts: smsContacts, userName: 'Alex', incidentId: panicState.incidentId });
     }).catch((e) => console.warn('[usePanic] Twilio check-in SMS failed:', e));
     console.log('✅ Check-in recorded');
   }, [panicState.incidentId]);

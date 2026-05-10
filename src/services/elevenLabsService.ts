@@ -68,9 +68,13 @@ export const elevenLabsService = {
    */
   async playPanicAlert(): Promise<HTMLAudioElement | null> {
     try {
+      // Unlock browser autoplay immediately (must happen synchronously near the user gesture)
+      const unlock = new Audio();
+      unlock.play().catch(() => {});
+
       const url = await elevenLabsService.speak({
         text: 'Help! ICE. Migra. I need help. Please call my emergency contacts.',
-        stability: 0.3,       // More urgent, less stable
+        stability: 0.3,
         similarityBoost: 0.9,
       });
 

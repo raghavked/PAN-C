@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { contactsApi, documentsApi, checkinApi, type CheckInSettings } from '../services/api';
+import { contactsApi, documentsApi, checkinApi, panicApi, type CheckInSettings } from '../services/api';
 import { colors } from '../theme/colors';
 
 type Screen = 'home' | 'contacts' | 'documents' | 'checkin' | 'chat' | 'panic';
@@ -15,6 +15,10 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
   const [contactCount, setContactCount] = useState(0);
   const [docCount, setDocCount] = useState(0);
   const [checkin, setCheckin] = useState<{ settings: CheckInSettings; minutesRemaining: number; isOverdue: boolean } | null>(null);
+  const [safePhrase, setSafePhrase] = useState('');
+  const [safePhraseInput, setSafePhraseInput] = useState('');
+  const [safePhraseEditing, setSafePhraseEditing] = useState(false);
+  const [safePhraseStatus, setSafePhraseStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const loadData = useCallback(async () => {
     try {
@@ -30,6 +34,27 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const phrase = (user as Record<string, unknown>)?.safePhrase as string ?? '';
+    setSafePhrase(phrase);
+    setSafePhraseInput(phrase);
+  }, [user]);
+
+  const handleSaveSafePhrase = async () => {
+    if (!safePhraseInput.trim() || safePhraseInput.length < 4) return;
+    setSafePhraseStatus('saving');
+    try {
+      await panicApi.setSafePhrase(safePhraseInput.trim());
+      setSafePhrase(safePhraseInput.trim());
+      setSafePhraseEditing(false);
+      setSafePhraseStatus('saved');
+      setTimeout(() => setSafePhraseStatus('idle'), 2000);
+    } catch {
+      setSafePhraseStatus('error');
+      setTimeout(() => setSafePhraseStatus('idle'), 2000);
+    }
+  };
 
   const handleCheckIn = async () => {
     try {
@@ -79,7 +104,7 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
           <div style={styles.checkinLeft}>
             <span style={{ fontSize: 20 }}>{checkin.isOverdue ? '⚠️' : '⏰'}</span>
             <div>
-              <div style={{ ...styles.checkinTitle, color: checkin.isOverdue ? colors.alertRed : colors.textPrimary }}>
+              <div style={{ ...styles.checkinTitle, color: checkin.isOverdue ? colors.alertRed : colors.textPrimaryPrimary }}>
                 {checkin.isOverdue ? 'Check-In Overdue!' : `Check-In: ${checkin.minutesRemaining} min remaining`}
               </div>
               <div style={styles.checkinSub}>Every {checkin.settings.intervalMinutes} minutes</div>
@@ -131,6 +156,46 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
             {docCount > 0 ? '✓' : '⚠'} {docCount} Document{docCount !== 1 ? 's' : ''}
           </span>
         </div>
+
+        {/* Safe Phrase */}
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 12, color: colors.textPrimarySecondary, marginBottom: 6 }}>
+            SAFE PHRASE {safePhrase ? '✓' : '⚠ not set'}
+          </div>
+          {safePhraseEditing ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="password"
+                value={safePhraseInput}
+                onChange={e => setSafePhraseInput(e.target.value)}
+                placeholder="Min 4 characters"
+                maxLength={30}
+                style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${colors.border}`, background: colors.surface2, color: colors.textPrimary, fontSize: 14 }}
+              />
+              <button onClick={handleSaveSafePhrase} disabled={safePhraseStatus === 'saving'}
+                style={{ padding: '8px 14px', borderRadius: 8, background: colors.alertRed, color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+                {safePhraseStatus === 'saving' ? '...' : 'Save'}
+              </button>
+              <button onClick={() => { setSafePhraseEditing(false); setSafePhraseInput(safePhrase); }}
+                style={{ padding: '8px 14px', borderRadius: 8, background: colors.surface2, color: colors.textPrimary, border: 'none', cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ color: safePhrase ? colors.success : colors.warning, fontSize: 14 }}>
+                {safePhrase ? '••••••••' : 'Tap to set a safe phrase'}
+              </span>
+              <button onClick={() => setSafePhraseEditing(true)}
+                style={{ fontSize: 12, color: colors.alertRed, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                {safePhrase ? 'Change' : 'Set'}
+              </button>
+            </div>
+          )}
+          {safePhraseStatus === 'saved' && <div style={{ fontSize: 12, color: colors.success, marginTop: 4 }}>Saved!</div>}
+          {safePhraseStatus === 'error' && <div style={{ fontSize: 12, color: colors.alertRed, marginTop: 4 }}>Failed to save</div>}
+        </div>
+
         <button style={styles.editProfileBtn} onClick={() => onNavigate('contacts')}>
           Edit Profile →
         </button>
@@ -153,8 +218,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '20px 16px 16px',
     borderBottom: `1px solid ${colors.border}`,
   },
-  welcomeText: { fontSize: 14, color: colors.textSecondary, marginBottom: 2 },
-  appName: { fontSize: 28, fontWeight: 800, color: colors.textPrimary, letterSpacing: '-1px' },
+  welcomeText: { fontSize: 14, color: colors.textPrimarySecondary, marginBottom: 2 },
+  appName: { fontSize: 28, fontWeight: 800, color: colors.textPrimaryPrimary, letterSpacing: '-1px' },
   exclaim: { color: colors.alertRed },
   settingsBtn: { background: 'transparent', border: 'none', fontSize: 22, cursor: 'pointer', padding: 4 },
   checkinBanner: {
@@ -170,13 +235,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   checkinLeft: { display: 'flex', alignItems: 'center', gap: 10 },
   checkinTitle: { fontSize: 14, fontWeight: 700 },
-  checkinSub: { fontSize: 12, color: colors.textMuted },
+  checkinSub: { fontSize: 12, color: colors.textPrimaryMuted },
   checkinBtns: { display: 'flex', gap: 8 },
   snoozeBtn: {
     background: colors.surface2,
     border: `1px solid ${colors.border}`,
     borderRadius: 6,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     fontSize: 12,
     padding: '6px 10px',
     cursor: 'pointer',
@@ -219,7 +284,7 @@ const styles: Record<string, React.CSSProperties> = {
   panicSubtext: {
     fontSize: 12,
     fontWeight: 700,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     letterSpacing: '0.15em',
     textTransform: 'uppercase',
     marginTop: 12,
@@ -244,10 +309,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'inherit',
   },
   navIcon: { fontSize: 24 },
-  navLabel: { fontSize: 14, fontWeight: 700, color: colors.textPrimary },
+  navLabel: { fontSize: 14, fontWeight: 700, color: colors.textPrimaryPrimary },
   navCount: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: colors.textPrimaryMuted,
     background: colors.surface2,
     borderRadius: 20,
     padding: '2px 8px',
@@ -263,7 +328,7 @@ const styles: Record<string, React.CSSProperties> = {
   infoTitle: {
     fontSize: 12,
     fontWeight: 700,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
@@ -273,7 +338,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     border: `1px solid ${colors.border}`,
     borderRadius: 6,
-    color: colors.textSecondary,
+    color: colors.textPrimarySecondary,
     fontSize: 13,
     padding: '6px 12px',
     cursor: 'pointer',
