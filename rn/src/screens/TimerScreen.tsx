@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Pressable, Animated,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
 
@@ -21,11 +22,11 @@ export const TimerScreen: React.FC = () => {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!running) return;
-    if (localSeconds <= 0) {
-      setRunning(false);
+    if (!running) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
+    if (localSeconds <= 0) { setRunning(false); return; }
     intervalRef.current = setInterval(() => {
       setLocalSeconds((s) => {
         if (s <= 1) { setRunning(false); return 0; }
@@ -45,17 +46,16 @@ export const TimerScreen: React.FC = () => {
       );
       anim.start();
       return () => anim.stop();
-    } else {
-      pulseAnim.setValue(1);
     }
+    pulseAnim.setValue(1);
   }, [running, localSeconds]);
 
   const formatTime = (s: number) => {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
-    if (h > 0) return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-    return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    if (h > 0) return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
   const pct = localSeconds / PRESETS[selectedPreset].seconds;
@@ -86,82 +86,65 @@ export const TimerScreen: React.FC = () => {
       </View>
 
       <View style={s.content}>
-        {/* Title */}
         <Text style={s.pageTitle}>SAFETY TIMER</Text>
         <Text style={s.pageSub}>
-          Set a check-in countdown. If it reaches zero without check-in, contacts are alerted.
+          Set a check-in countdown. If it reaches zero, your contacts are alerted.
         </Text>
 
-        {/* Timer Display */}
         <Animated.View style={[s.timerRing, { opacity: isLow ? pulseAnim : 1 }, isDone && s.timerRingDone]}>
           <View style={s.timerInner}>
             <Text style={[s.timerText, isLow && s.timerTextLow, isDone && s.timerTextDone]}>
               {isDone ? 'TIME\nUP' : formatTime(localSeconds)}
             </Text>
-            {running && !isDone && (
-              <Text style={s.timerStatus}>COUNTING DOWN</Text>
-            )}
-            {!running && !isDone && (
-              <Text style={s.timerStatus}>PAUSED</Text>
-            )}
+            <Text style={s.timerStatus}>
+              {isDone ? 'EXPIRED' : running ? 'COUNTING DOWN' : 'PAUSED'}
+            </Text>
           </View>
         </Animated.View>
 
-        {/* Progress bar */}
         <View style={s.progressTrack}>
-          <View style={[s.progressFill, { width: `${Math.round(pct * 100)}%` as any }, isLow && s.progressFillLow]} />
+          <View style={[s.progressFill, { width: `${Math.round(pct * 100)}%` as any }, isLow && s.progressLow]} />
         </View>
 
-        {/* Preset Buttons */}
         <View style={s.presets}>
           {PRESETS.map((p, i) => (
             <Pressable
               key={p.label}
-              style={({ pressed }) => [
-                s.presetBtn,
-                i === selectedPreset && s.presetBtnActive,
-                pressed && s.presetBtnPressed,
-              ]}
+              style={({ pressed }) => [s.presetBtn, i === selectedPreset && s.presetActive, pressed && s.presetPressed]}
               onPress={() => handlePreset(i)}
             >
-              <Text style={[s.presetText, i === selectedPreset && s.presetTextActive]}>
-                {p.label}
-              </Text>
+              <Text style={[s.presetText, i === selectedPreset && s.presetTextActive]}>{p.label}</Text>
             </Pressable>
           ))}
         </View>
 
-        {/* Control Buttons */}
         <View style={s.controls}>
-          <Pressable
-            style={({ pressed }) => [s.resetBtn, pressed && s.resetBtnPressed]}
-            onPress={handleReset}
-          >
-            <Text style={s.resetBtnText}>↺ RESET</Text>
+          <Pressable style={({ pressed }) => [s.resetBtn, pressed && s.resetPressed]} onPress={handleReset}>
+            <MaterialIcons name="refresh" size={18} color={colors.textSecondary} />
+            <Text style={s.resetBtnText}>RESET</Text>
           </Pressable>
-
           <Pressable
-            style={({ pressed }) => [s.startBtn, pressed && s.startBtnPressed]}
+            style={({ pressed }) => [s.startBtn, pressed && s.startPressed]}
             onPress={() => setRunning((r) => !r)}
           >
-            <Text style={s.startBtnText}>{running ? '⏸ PAUSE' : '▶ START'}</Text>
+            <MaterialIcons name={running ? 'pause' : 'play-arrow'} size={22} color={colors.onPrimary} />
+            <Text style={s.startBtnText}>{running ? 'PAUSE' : 'START'}</Text>
           </Pressable>
         </View>
 
-        {/* Check-in */}
-        <Pressable
-          style={({ pressed }) => [s.checkInBtn, pressed && s.checkInBtnPressed]}
-          onPress={handleCheckIn}
-        >
-          <Text style={s.checkInText}>✓ I'M SAFE — RESET & RESTART</Text>
+        <Pressable style={({ pressed }) => [s.checkInBtn, pressed && s.checkInPressed]} onPress={handleCheckIn}>
+          <MaterialIcons name="check-circle" size={18} color={colors.primary} />
+          <Text style={s.checkInText}>I'M SAFE — RESET & RESTART</Text>
         </Pressable>
 
-        {/* Panic timer status */}
         {isActive && (
-          <View style={s.panicTimerCard}>
-            <Text style={s.panicTimerLabel}>🚨 ACTIVE INCIDENT TIMER</Text>
-            <Text style={s.panicTimerValue}>
-              {String(Math.floor(timer / 60)).padStart(2,'0')}:{String(timer % 60).padStart(2,'0')}
+          <View style={s.panicCard}>
+            <View style={s.panicCardLeft}>
+              <MaterialIcons name="emergency" size={14} color={colors.primary} />
+              <Text style={s.panicLabel}>ACTIVE INCIDENT TIMER</Text>
+            </View>
+            <Text style={s.panicValue}>
+              {String(Math.floor(timer / 60)).padStart(2, '0')}:{String(timer % 60).padStart(2, '0')}
             </Text>
           </View>
         )}
@@ -173,82 +156,88 @@ export const TimerScreen: React.FC = () => {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   topBar: {
-    height: 56, justifyContent: 'center', alignItems: 'center',
+    height: 52, justifyContent: 'center', alignItems: 'center',
     borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
   },
-  appName: { fontSize: 22, fontWeight: '800', color: colors.primary, textTransform: 'uppercase' },
+  appName: { fontSize: 20, fontWeight: '800', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
+
   content: { flex: 1, padding: spacing.md, gap: spacing.md, alignItems: 'center' },
+
   pageTitle: {
-    fontSize: 24, fontWeight: '800', color: colors.textPrimary,
+    fontSize: 22, fontWeight: '800', color: colors.textPrimary,
     textTransform: 'uppercase', letterSpacing: 2, alignSelf: 'flex-start',
   },
   pageSub: {
-    fontSize: 13, color: colors.textSecondary, lineHeight: 20,
-    alignSelf: 'flex-start',
+    fontSize: 13, color: colors.textSecondary, lineHeight: 20, alignSelf: 'flex-start',
   },
+
   timerRing: {
     width: 220, height: 220, borderRadius: 110,
-    borderWidth: 4, borderColor: colors.primary,
+    borderWidth: 3, borderColor: colors.primary,
     backgroundColor: colors.surfaceContainer,
     alignItems: 'center', justifyContent: 'center',
-    marginVertical: spacing.md,
+    marginVertical: spacing.sm,
   },
   timerRingDone: { borderColor: colors.surfaceBorder },
   timerInner: { alignItems: 'center', gap: 4 },
   timerText: {
-    fontSize: 48, fontWeight: '800', color: colors.textPrimary,
-    textAlign: 'center', lineHeight: 56,
+    fontSize: 46, fontWeight: '800', color: colors.textPrimary,
+    textAlign: 'center', lineHeight: 54,
   },
   timerTextLow: { color: colors.primary },
-  timerTextDone: { fontSize: 36, color: colors.textSecondary },
+  timerTextDone: { fontSize: 34, color: colors.textSecondary },
   timerStatus: {
-    fontSize: 11, fontWeight: '700', color: colors.textSecondary,
+    fontSize: 10, fontWeight: '700', color: colors.textMuted,
     textTransform: 'uppercase', letterSpacing: 2,
   },
+
   progressTrack: {
-    width: '100%', height: 4,
+    width: '100%', height: 3,
     backgroundColor: colors.surfaceHighest, borderRadius: 2, overflow: 'hidden',
   },
-  progressFill: {
-    height: 4, backgroundColor: colors.primary, borderRadius: 2,
-  },
-  progressFillLow: { backgroundColor: colors.primary },
+  progressFill: { height: 3, backgroundColor: colors.primary, borderRadius: 2 },
+  progressLow: { backgroundColor: colors.primary },
+
   presets: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
   presetBtn: {
-    flex: 1, paddingVertical: spacing.sm, borderRadius: radius.sm,
+    flex: 1, paddingVertical: 10, borderRadius: radius.sm,
     backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.surfaceBorder,
     alignItems: 'center',
   },
-  presetBtnActive: { borderColor: colors.primary, backgroundColor: 'rgba(248,91,88,0.1)' },
-  presetBtnPressed: { backgroundColor: colors.surfaceElevated },
-  presetText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase' },
+  presetActive: { borderColor: colors.primary, backgroundColor: 'rgba(248,91,88,0.1)' },
+  presetPressed: { backgroundColor: colors.surfaceElevated },
+  presetText: { fontSize: 11, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
   presetTextActive: { color: colors.primary },
+
   controls: { flexDirection: 'row', gap: spacing.sm, width: '100%' },
   resetBtn: {
-    flex: 1, paddingVertical: spacing.md, borderRadius: radius.md,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: spacing.md, borderRadius: radius.md,
     borderWidth: 1, borderColor: colors.surfaceBorder,
-    alignItems: 'center',
   },
-  resetBtnPressed: { backgroundColor: colors.surfaceElevated },
-  resetBtnText: { fontSize: 14, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase' },
+  resetPressed: { backgroundColor: colors.surfaceElevated },
+  resetBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase' },
   startBtn: {
-    flex: 2, paddingVertical: spacing.md, borderRadius: radius.md,
-    backgroundColor: colors.primary, alignItems: 'center',
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: spacing.md, borderRadius: radius.md, backgroundColor: colors.primary,
   },
-  startBtnPressed: { opacity: 0.85 },
-  startBtnText: { fontSize: 16, fontWeight: '800', color: colors.onPrimary, textTransform: 'uppercase', letterSpacing: 1 },
+  startPressed: { opacity: 0.85 },
+  startBtnText: { fontSize: 15, fontWeight: '800', color: colors.onPrimary, textTransform: 'uppercase', letterSpacing: 1 },
+
   checkInBtn: {
-    width: '100%', paddingVertical: spacing.md, borderRadius: radius.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    width: '100%', paddingVertical: 14, borderRadius: radius.md,
     borderWidth: 2, borderColor: colors.primary,
-    alignItems: 'center',
   },
-  checkInBtnPressed: { backgroundColor: colors.primary },
-  checkInText: { fontSize: 14, fontWeight: '700', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
-  panicTimerCard: {
+  checkInPressed: { backgroundColor: 'rgba(248,91,88,0.1)' },
+  checkInText: { fontSize: 13, fontWeight: '700', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
+
+  panicCard: {
     width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: 'rgba(248,91,88,0.1)', borderWidth: 1, borderColor: colors.primary,
+    backgroundColor: 'rgba(248,91,88,0.08)', borderWidth: 1, borderColor: colors.primary,
     borderRadius: radius.md, padding: spacing.md,
   },
-  panicTimerLabel: { fontSize: 13, fontWeight: '700', color: colors.primary, textTransform: 'uppercase' },
-  panicTimerValue: { fontSize: 20, fontWeight: '800', color: colors.textPrimary },
+  panicCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  panicLabel: { fontSize: 12, fontWeight: '700', color: colors.primary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  panicValue: { fontSize: 20, fontWeight: '800', color: colors.textPrimary },
 });

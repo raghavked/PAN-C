@@ -2,15 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Animated, SafeAreaView, ScrollView, Pressable, TextInput,
 } from 'react-native';
-import { colors, spacing, typography, radius } from '../theme';
+import { MaterialIcons } from '@expo/vector-icons';
+import { colors, spacing, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
 
 const SAFE_PHRASE = 'I AM SAFE';
 
 const STATUS_ITEMS = [
-  { icon: '📱', label: 'Maria Garcia', sub: 'Emergency Contact 1', status: 'SMS Sent' },
-  { icon: '📱', label: 'Carlos Lopez', sub: 'Emergency Contact 2', status: 'SMS Sent' },
-  { icon: '📱', label: 'RAICES Hotline', sub: 'Legal Aid', status: 'SMS Sent' },
+  { icon: 'security' as const, label: 'Primary Responder Hub', sub: 'ID: 994-Alpha', status: 'NOTIFIED', sent: true },
+  { icon: 'person' as const, label: 'Emergency Contact 1', sub: 'Sarah Connor', status: 'SMS SENT', sent: true },
+  { icon: 'videocam' as const, label: 'Live Video Feed', sub: 'Establishing Connection…', status: 'PENDING', sent: false },
 ];
 
 export const PanicActiveScreen: React.FC = () => {
@@ -24,7 +25,7 @@ export const PanicActiveScreen: React.FC = () => {
     if (!isActive) { flashAnim.setValue(1); return; }
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(flashAnim, { toValue: 0.5, duration: 600, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 0.55, duration: 600, useNativeDriver: true }),
         Animated.timing(flashAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
       ])
     );
@@ -43,7 +44,8 @@ export const PanicActiveScreen: React.FC = () => {
     setDisarming(false);
   };
 
-  const formatTimer = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const formatTimer = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   if (!isActive) {
     return (
@@ -52,8 +54,8 @@ export const PanicActiveScreen: React.FC = () => {
           <Text style={s.appName}>PAN!C</Text>
         </View>
         <View style={s.standbyWrap}>
-          <View style={s.standbyIcon}>
-            <Text style={{ fontSize: 40 }}>🛡️</Text>
+          <View style={s.standbyCircle}>
+            <MaterialIcons name="security" size={40} color={colors.textMuted} />
           </View>
           <Text style={s.standbyTitle}>NO ACTIVE ALERT</Text>
           <Text style={s.standbySub}>Press the panic button on the Home screen to activate an emergency alert.</Text>
@@ -68,80 +70,79 @@ export const PanicActiveScreen: React.FC = () => {
         <Text style={s.appName}>PAN!C</Text>
       </View>
 
-      {/* Emergency Banner */}
       <Animated.View style={[s.emergencyBanner, { opacity: flashAnim }]}>
-        <Text style={s.emergencyIcon}>⚠️</Text>
+        <MaterialIcons name="warning" size={18} color={colors.onPrimary} />
         <Text style={s.emergencyText}>EMERGENCY ACTIVE</Text>
       </Animated.View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-        {/* Timer + Audio Card */}
-        <View style={s.timerCard}>
-          <View style={s.timerLeft}>
+        <View style={s.audioCard}>
+          <View style={s.audioLeft}>
             <View style={s.micCircle}>
-              <Text style={s.micIcon}>🔴</Text>
+              <MaterialIcons name="mic" size={24} color={colors.primary} />
             </View>
-            <Text style={s.micLabel}>LIVE AUDIO</Text>
-            <Text style={s.micSub}>Recording & Transmitting</Text>
+            <Text style={s.audioTitle}>Live Audio</Text>
+            <Text style={s.audioSub}>RECORDING & TRANSMITTING</Text>
           </View>
           <Text style={s.timerDisplay}>{formatTimer(timer)}</Text>
         </View>
 
-        {/* Location placeholder */}
         <View style={s.locationCard}>
           <View style={s.locationHeader}>
-            <Text style={s.locationIcon}>📍</Text>
+            <MaterialIcons name="my-location" size={14} color={colors.primary} />
             <Text style={s.locationLabel}>TRACKING ACTIVE</Text>
           </View>
-          <View style={s.locationBody}>
-            <Text style={s.coordinatesText}>Acquiring location…</Text>
-            <Text style={s.locationAccuracy}>Incident: {incidentId}</Text>
+          <View style={s.locationMap}>
+            <View style={s.locationDot} />
+          </View>
+          <View style={s.locationFooter}>
+            <Text style={s.coordText}>Acquiring location…</Text>
+            <Text style={s.accuracyText}>± 5 METERS</Text>
           </View>
         </View>
 
-        {/* Dispatch Status */}
         <View style={s.dispatchCard}>
           <View style={s.dispatchHeader}>
-            <Text style={s.dispatchHeaderIcon}>📡</Text>
+            <MaterialIcons name="sensors" size={18} color={colors.textPrimary} />
             <Text style={s.dispatchTitle}>DISPATCH STATUS</Text>
           </View>
           {STATUS_ITEMS.map((item, i) => (
             <View key={i} style={s.dispatchRow}>
               <View style={s.dispatchAvatar}>
-                <Text>{item.icon}</Text>
+                <MaterialIcons name={item.icon} size={18} color={colors.textSecondary} />
               </View>
               <View style={s.dispatchInfo}>
                 <Text style={s.dispatchName}>{item.label}</Text>
                 <Text style={s.dispatchSub}>{item.sub}</Text>
-              </View>
-              <View style={s.notifiedBadge}>
-                <Text style={s.notifiedText}>✓ {item.status}</Text>
+                <View style={[s.statusBadge, item.sent ? s.badgeSent : s.badgePending]}>
+                  {item.sent && <MaterialIcons name="check-circle" size={11} color={colors.primary} />}
+                  <Text style={[s.statusBadgeText, item.sent ? s.badgeSentText : s.badgePendingText]}>
+                    {item.status}
+                  </Text>
+                </View>
               </View>
             </View>
           ))}
         </View>
 
-        {/* Rights reminder */}
         {!!rightsReminder && (
           <View style={s.rightsCard}>
-            <Text style={s.rightsTitle}>⚖️ YOUR RIGHTS</Text>
+            <View style={s.rightsHeader}>
+              <MaterialIcons name="gavel" size={16} color={colors.primary} />
+              <Text style={s.rightsTitle}>YOUR RIGHTS</Text>
+            </View>
             <Text style={s.rightsText}>{rightsReminder}</Text>
           </View>
         )}
 
-        {/* Check-In */}
-        <Pressable
-          style={({ pressed }) => [s.checkInBtn, pressed && s.checkInBtnPressed]}
-          onPress={checkIn}
-        >
-          <Text style={s.checkInText}>✓ I'M SAFE — RESET TIMER</Text>
-        </Pressable>
-
-        {/* Disarm */}
         <View style={s.disarmCard}>
-          <Text style={s.disarmTitle}>DISARM SYSTEM</Text>
-          <Text style={s.disarmSub}>Enter your safe phrase to cancel the alert.</Text>
+          <Text style={s.disarmHint}>ENTER PIN TO CANCEL ALERT</Text>
+          <View style={s.pinDots}>
+            {[0, 1, 2, 3].map((i) => (
+              <View key={i} style={[s.pinDot, i < phrase.length && s.pinDotFilled]} />
+            ))}
+          </View>
           <TextInput
             style={[s.disarmInput, !!disarmError && s.disarmInputError]}
             placeholder={`Type "${SAFE_PHRASE}"`}
@@ -156,7 +157,8 @@ export const PanicActiveScreen: React.FC = () => {
             onPress={handleDisarm}
             disabled={disarming}
           >
-            <Text style={s.disarmBtnText}>{disarming ? 'DISARMING…' : '🔓 DISARM SYSTEM'}</Text>
+            <MaterialIcons name="lock-open" size={18} color={colors.onPrimary} />
+            <Text style={s.disarmBtnText}>{disarming ? 'DISARMING…' : 'DISARM SYSTEM'}</Text>
           </Pressable>
         </View>
 
@@ -168,118 +170,137 @@ export const PanicActiveScreen: React.FC = () => {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   topBar: {
-    height: 56, justifyContent: 'center', alignItems: 'center',
+    height: 52, justifyContent: 'center', alignItems: 'center',
     borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
   },
-  appName: { fontSize: 22, fontWeight: '800', color: colors.primary, textTransform: 'uppercase' },
+  appName: { fontSize: 20, fontWeight: '800', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
+
   standbyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-  standbyIcon: {
+  standbyCircle: {
     width: 88, height: 88, borderRadius: 44,
     backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.surfaceBorder,
     alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg,
   },
   standbyTitle: { fontSize: 20, fontWeight: '800', color: colors.textPrimary, textTransform: 'uppercase', marginBottom: spacing.sm },
   standbySub: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+
   emergencyBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
-    backgroundColor: colors.primary, paddingVertical: spacing.sm,
+    backgroundColor: colors.primary, paddingVertical: 10,
   },
-  emergencyIcon: { fontSize: 18 },
   emergencyText: {
-    fontSize: 16, fontWeight: '800', color: colors.onPrimary,
+    fontSize: 15, fontWeight: '800', color: colors.onPrimary,
     letterSpacing: 2, textTransform: 'uppercase',
   },
+
   content: { padding: spacing.md, gap: spacing.md, paddingBottom: 100 },
-  timerCard: {
+
+  audioCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary,
     borderRadius: radius.md, padding: spacing.md,
   },
-  timerLeft: { alignItems: 'flex-start' },
+  audioLeft: { alignItems: 'flex-start', gap: 4 },
   micCircle: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: 'rgba(248,91,88,0.15)', borderWidth: 2, borderColor: colors.primary,
-    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm,
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(248,91,88,0.12)', borderWidth: 1, borderColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center',
   },
-  micIcon: { fontSize: 20 },
-  micLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase' },
-  micSub: { fontSize: 11, fontWeight: '700', color: colors.primary, letterSpacing: 1, textTransform: 'uppercase', marginTop: 2 },
-  timerDisplay: {
-    fontSize: 48, fontWeight: '800', color: colors.textPrimary,
-    fontVariant: ['tabular-nums'],
-  },
+  audioTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary, marginTop: 6 },
+  audioSub: { fontSize: 10, fontWeight: '700', color: colors.primary, letterSpacing: 1, textTransform: 'uppercase' },
+  timerDisplay: { fontSize: 44, fontWeight: '800', color: colors.textPrimary, fontVariant: ['tabular-nums'] },
+
   locationCard: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.surfaceBorder,
-    borderRadius: radius.md, padding: spacing.md, gap: spacing.sm,
+    borderRadius: radius.md, overflow: 'hidden',
   },
-  locationHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  locationIcon: { fontSize: 16 },
-  locationLabel: { fontSize: 12, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
-  locationBody: {
+  locationHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceContainer,
+  },
+  locationLabel: { fontSize: 11, fontWeight: '700', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
+  locationMap: {
+    height: 64, backgroundColor: colors.surfaceElevated,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  locationDot: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: colors.primary,
+    borderWidth: 2, borderColor: 'rgba(248,91,88,0.3)',
+    shadowColor: colors.primary, shadowOpacity: 0.8, shadowRadius: 6,
+  },
+  locationFooter: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: colors.surfaceElevated, borderRadius: radius.sm, padding: spacing.sm,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
-  coordinatesText: { fontSize: 14, color: colors.textPrimary },
-  locationAccuracy: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase' },
+  coordText: { fontSize: 13, color: colors.textPrimary },
+  accuracyText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
+
   dispatchCard: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.surfaceBorder,
     borderRadius: radius.md, padding: spacing.md, gap: spacing.sm,
   },
   dispatchHeader: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder, paddingBottom: spacing.sm,
+    paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
   },
-  dispatchHeaderIcon: { fontSize: 16 },
-  dispatchTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
+  dispatchTitle: { fontSize: 13, fontWeight: '800', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
   dispatchRow: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm,
     backgroundColor: colors.surfaceContainer, borderRadius: radius.sm,
     borderWidth: 1, borderColor: colors.surfaceBorder, padding: spacing.sm,
   },
   dispatchAvatar: {
-    width: 40, height: 40, borderRadius: 20,
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: colors.surfaceHighest, alignItems: 'center', justifyContent: 'center',
   },
-  dispatchInfo: { flex: 1 },
-  dispatchName: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+  dispatchInfo: { flex: 1, gap: 2 },
+  dispatchName: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
   dispatchSub: { fontSize: 11, color: colors.textSecondary },
-  notifiedBadge: {
-    backgroundColor: colors.primary, borderRadius: radius.sm,
-    paddingHorizontal: spacing.sm, paddingVertical: 4,
+  statusBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start', marginTop: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.sm, borderWidth: 1,
   },
-  notifiedText: { fontSize: 11, fontWeight: '700', color: colors.onPrimary, textTransform: 'uppercase' },
+  badgeSent: { borderColor: colors.primary, backgroundColor: 'rgba(248,91,88,0.1)' },
+  badgePending: { borderColor: colors.surfaceBorder, backgroundColor: colors.surfaceHighest },
+  statusBadgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  badgeSentText: { color: colors.primary },
+  badgePendingText: { color: colors.textMuted },
+
   rightsCard: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.surfaceBorder,
     borderRadius: radius.md, padding: spacing.md, gap: spacing.sm,
   },
-  rightsTitle: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
+  rightsHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  rightsTitle: { fontSize: 12, fontWeight: '800', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
   rightsText: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
-  checkInBtn: {
-    backgroundColor: colors.surfaceContainer, borderWidth: 2, borderColor: colors.primary,
-    borderRadius: radius.md, paddingVertical: spacing.md,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  checkInBtnPressed: { backgroundColor: colors.surfaceElevated },
-  checkInText: { fontSize: 14, fontWeight: '700', color: colors.primary, letterSpacing: 1, textTransform: 'uppercase' },
+
   disarmCard: {
-    backgroundColor: colors.surfaceHighest, borderWidth: 1, borderColor: colors.surfaceBorder,
-    borderRadius: radius.md, padding: spacing.md, gap: spacing.sm,
+    backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.surfaceBorder,
+    borderRadius: radius.md, padding: spacing.md, gap: spacing.sm, alignItems: 'center',
   },
-  disarmTitle: { fontSize: 16, fontWeight: '800', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
-  disarmSub: { fontSize: 13, color: colors.textSecondary },
+  disarmHint: { fontSize: 11, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+  pinDots: { flexDirection: 'row', gap: 12, marginVertical: 4 },
+  pinDot: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: colors.surfaceHighest, borderWidth: 1, borderColor: colors.surfaceBorder,
+  },
+  pinDotFilled: { backgroundColor: colors.primary, borderColor: colors.primary },
   disarmInput: {
-    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.surfaceBorder,
+    width: '100%', backgroundColor: colors.background, borderWidth: 1, borderColor: colors.surfaceBorder,
     borderRadius: radius.sm, padding: spacing.sm, color: colors.textPrimary,
-    fontSize: 16, textAlign: 'center', letterSpacing: 4,
+    fontSize: 15, textAlign: 'center', letterSpacing: 3,
   },
   disarmInputError: { borderColor: colors.primary, borderWidth: 2 },
   errorText: { fontSize: 12, color: colors.primary, textAlign: 'center' },
   disarmBtn: {
-    backgroundColor: colors.surfaceContainer, borderWidth: 2, borderColor: colors.primary,
-    borderRadius: radius.md, paddingVertical: spacing.md,
-    alignItems: 'center', justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    width: '100%', backgroundColor: colors.primary,
+    borderRadius: radius.md, paddingVertical: 14, marginTop: 4,
   },
-  disarmBtnPressed: { backgroundColor: colors.primary },
+  disarmBtnPressed: { opacity: 0.85 },
   disarmBtnLoading: { opacity: 0.6 },
-  disarmBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary, letterSpacing: 1, textTransform: 'uppercase' },
+  disarmBtnText: { fontSize: 15, fontWeight: '800', color: colors.onPrimary, letterSpacing: 1, textTransform: 'uppercase' },
 });

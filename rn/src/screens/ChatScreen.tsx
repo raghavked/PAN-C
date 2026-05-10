@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme';
 import { geminiService, GeminiMessage } from '../services/geminiService';
 
@@ -26,7 +27,7 @@ const mkId = () => Math.random().toString(36).slice(2);
 const WELCOME: Message = {
   id: 'welcome',
   role: 'model',
-  text: "I'm your rights assistant. I can help you understand your constitutional rights during an ICE encounter. Ask me anything — I'll keep it brief and clear.\n\n🔑 Key rights:\n• You have the right to remain silent\n• You do not have to open the door without a warrant\n• You have the right to speak with a lawyer",
+  text: "I'm your rights assistant. I can help you understand your constitutional rights during an ICE encounter. Ask me anything.\n\nKey rights:\n- You have the right to remain silent\n- You do not have to open the door without a judicial warrant\n- You have the right to speak with a lawyer",
   timestamp: new Date(),
 };
 
@@ -52,44 +53,42 @@ export const ChatScreen: React.FC = () => {
         .map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
 
       const reply = await geminiService.chat(trimmed, history);
-      const modelMsg: Message = { id: mkId(), role: 'model', text: reply, timestamp: new Date() };
-      setMessages((prev) => [...prev, modelMsg]);
+      setMessages((prev) => [...prev, { id: mkId(), role: 'model', text: reply, timestamp: new Date() }]);
     } catch {
-      const errMsg: Message = {
+      setMessages((prev) => [...prev, {
         id: mkId(), role: 'model',
         text: 'You have the right to remain silent. Do not open the door without a warrant. Ask to speak to a lawyer immediately.',
         timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errMsg]);
+      }]);
     } finally {
       setLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     }
   }, [messages, loading]);
 
-  const formatTime = (d: Date) =>
-    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const fmt = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <SafeAreaView style={s.safe}>
-      {/* Top Bar */}
       <View style={s.topBar}>
         <Text style={s.appName}>PAN!C</Text>
       </View>
 
-      {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <View style={s.aiAvatar}><Text style={s.aiAvatarText}>⚖️</Text></View>
+          <View style={s.aiAvatar}>
+            <MaterialIcons name="gavel" size={20} color={colors.primary} />
+          </View>
           <View>
             <Text style={s.headerTitle}>RIGHTS ASSISTANT</Text>
-            <Text style={s.headerSub}>Powered by Gemini AI · Emergency Legal Guidance</Text>
+            <Text style={s.headerSub}>Powered by Gemini AI</Text>
           </View>
         </View>
         <Pressable
           style={({ pressed }) => [s.clearBtn, pressed && s.clearBtnPressed]}
           onPress={() => setMessages([WELCOME])}
         >
+          <MaterialIcons name="delete-outline" size={16} color={colors.textMuted} />
           <Text style={s.clearBtnText}>CLEAR</Text>
         </Pressable>
       </View>
@@ -97,9 +96,8 @@ export const ChatScreen: React.FC = () => {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={90}
       >
-        {/* Messages */}
         <ScrollView
           ref={scrollRef}
           style={s.messageList}
@@ -108,21 +106,18 @@ export const ChatScreen: React.FC = () => {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
           {messages.map((msg) => (
-            <View
-              key={msg.id}
-              style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleModel]}
-            >
+            <View key={msg.id} style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleModel]}>
               {msg.role === 'model' && (
                 <View style={s.bubbleModelHeader}>
                   <Text style={s.bubbleModelLabel}>RIGHTS ASSISTANT</Text>
-                  <Text style={s.bubbleTime}>{formatTime(msg.timestamp)}</Text>
+                  <Text style={s.bubbleTime}>{fmt(msg.timestamp)}</Text>
                 </View>
               )}
-              <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextModel]}>
+              <Text style={[s.bubbleText, msg.role === 'user' ? s.textUser : s.textModel]}>
                 {msg.text}
               </Text>
               {msg.role === 'user' && (
-                <Text style={[s.bubbleTime, s.bubbleTimeUser]}>{formatTime(msg.timestamp)}</Text>
+                <Text style={[s.bubbleTime, s.bubbleTimeUser]}>{fmt(msg.timestamp)}</Text>
               )}
             </View>
           ))}
@@ -135,7 +130,6 @@ export const ChatScreen: React.FC = () => {
           )}
         </ScrollView>
 
-        {/* Quick Questions */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -153,7 +147,6 @@ export const ChatScreen: React.FC = () => {
           ))}
         </ScrollView>
 
-        {/* Input */}
         <View style={s.inputRow}>
           <TextInput
             style={s.input}
@@ -171,7 +164,7 @@ export const ChatScreen: React.FC = () => {
             onPress={() => send(input)}
             disabled={!input.trim() || loading}
           >
-            <Text style={s.sendBtnText}>SEND</Text>
+            <MaterialIcons name="send" size={18} color={colors.onPrimary} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -182,85 +175,82 @@ export const ChatScreen: React.FC = () => {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   topBar: {
-    height: 56, justifyContent: 'center', alignItems: 'center',
+    height: 52, justifyContent: 'center', alignItems: 'center',
     borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
   },
-  appName: { fontSize: 22, fontWeight: '800', color: colors.primary, textTransform: 'uppercase' },
+  appName: { fontSize: 20, fontWeight: '800', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md, paddingVertical: 10,
     backgroundColor: colors.surfaceContainer, borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   aiAvatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: 'rgba(248,91,88,0.15)', borderWidth: 1, borderColor: colors.primary,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: 'rgba(248,91,88,0.12)', borderWidth: 1, borderColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  aiAvatarText: { fontSize: 20 },
-  headerTitle: { fontSize: 13, fontWeight: '800', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
-  headerSub: { fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  headerTitle: { fontSize: 12, fontWeight: '800', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 1 },
+  headerSub: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
   clearBtn: {
-    paddingHorizontal: spacing.sm, paddingVertical: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 1, borderColor: colors.surfaceBorder, borderRadius: radius.sm,
   },
   clearBtnPressed: { borderColor: colors.outline },
-  clearBtnText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, textTransform: 'uppercase' },
+  clearBtnText: { fontSize: 10, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
+
   messageList: { flex: 1 },
   messageContent: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.sm },
-  bubble: {
-    maxWidth: '85%', padding: spacing.md,
-    borderRadius: radius.md, gap: 4,
-  },
-  bubbleUser: {
-    alignSelf: 'flex-end', backgroundColor: colors.primary,
-    borderBottomRightRadius: radius.sm,
-  },
+
+  bubble: { maxWidth: '85%', padding: spacing.md, borderRadius: radius.md, gap: 4 },
+  bubbleUser: { alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomRightRadius: 4 },
   bubbleModel: {
     alignSelf: 'flex-start', backgroundColor: colors.surfaceContainer,
-    borderWidth: 1, borderColor: colors.surfaceBorder,
-    borderBottomLeftRadius: radius.sm,
+    borderWidth: 1, borderColor: colors.surfaceBorder, borderBottomLeftRadius: 4,
   },
   bubbleModelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  bubbleModelLabel: { fontSize: 10, fontWeight: '700', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
+  bubbleModelLabel: { fontSize: 9, fontWeight: '700', color: colors.primary, textTransform: 'uppercase', letterSpacing: 1 },
   bubbleText: { fontSize: 14, lineHeight: 22 },
-  bubbleTextUser: { color: colors.onPrimary },
-  bubbleTextModel: { color: colors.textPrimary },
+  textUser: { color: colors.onPrimary },
+  textModel: { color: colors.textPrimary },
   bubbleTime: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
-  bubbleTimeUser: { color: 'rgba(92,0,9,0.6)', textAlign: 'right' },
+  bubbleTimeUser: { color: 'rgba(92,0,9,0.5)', textAlign: 'right' },
+
   typingBubble: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     alignSelf: 'flex-start', backgroundColor: colors.surfaceContainer,
     borderRadius: radius.md, padding: spacing.md,
     borderWidth: 1, borderColor: colors.surfaceBorder,
   },
-  typingText: { fontSize: 13, color: colors.textSecondary, fontStyle: 'italic' },
+  typingText: { fontSize: 13, color: colors.textMuted, fontStyle: 'italic' },
+
   quickScroll: { maxHeight: 44, borderTopWidth: 1, borderTopColor: colors.surfaceBorder },
-  quickContent: { paddingHorizontal: spacing.md, gap: spacing.sm, alignItems: 'center', paddingVertical: spacing.xs },
+  quickContent: { paddingHorizontal: spacing.md, gap: spacing.sm, alignItems: 'center', paddingVertical: 8 },
   quickChip: {
-    paddingHorizontal: spacing.sm, paddingVertical: 6,
+    paddingHorizontal: 12, paddingVertical: 6,
     backgroundColor: colors.surfaceContainer,
     borderRadius: radius.full, borderWidth: 1, borderColor: colors.surfaceBorder,
   },
-  quickChipPressed: { borderColor: colors.primary, backgroundColor: 'rgba(248,91,88,0.1)' },
-  quickChipText: { fontSize: 12, color: colors.textSecondary, whiteSpace: 'nowrap' as any },
+  quickChipPressed: { borderColor: colors.primary, backgroundColor: 'rgba(248,91,88,0.08)' },
+  quickChipText: { fontSize: 12, color: colors.textSecondary },
+
   inputRow: {
-    flexDirection: 'row', gap: spacing.sm,
+    flexDirection: 'row', gap: spacing.sm, alignItems: 'center',
     padding: spacing.sm, borderTopWidth: 1, borderTopColor: colors.surfaceBorder,
     backgroundColor: colors.surfaceContainer,
   },
   input: {
     flex: 1, backgroundColor: colors.background,
     borderWidth: 1, borderColor: colors.surfaceBorder, borderRadius: radius.sm,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md, paddingVertical: 10,
     color: colors.textPrimary, fontSize: 14,
   },
   sendBtn: {
-    backgroundColor: colors.primary, borderRadius: radius.sm,
-    paddingHorizontal: spacing.md, justifyContent: 'center', alignItems: 'center',
-    minWidth: 64,
+    width: 44, height: 44, borderRadius: radius.sm,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
   },
   sendBtnPressed: { opacity: 0.85 },
-  sendBtnDisabled: { opacity: 0.4 },
-  sendBtnText: { fontSize: 12, fontWeight: '800', color: colors.onPrimary, textTransform: 'uppercase' },
+  sendBtnDisabled: { opacity: 0.35 },
 });

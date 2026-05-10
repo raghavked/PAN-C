@@ -1,94 +1,102 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, SafeAreaView, Pressable, Animated,
+  View, Text, ScrollView, StyleSheet, SafeAreaView, Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { PanicButton } from '../components/panic/PanicButton';
-import { colors, spacing, typography, radius } from '../theme';
+import { colors, spacing, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
 
-const ACTIVITY = [
-  { icon: '📍', label: 'Location Updated', sub: 'Coordinates synced successfully.', time: '10:42 AM' },
-  { icon: '⚖️', label: 'Rights Accessed', sub: "Document 'Stop & ID' viewed.", time: 'YESTERDAY' },
-  { icon: '⏱', label: 'Timer Cancelled', sub: 'Safety check-in dismissed.', time: 'OCT 12' },
+type MIName = React.ComponentProps<typeof MaterialIcons>['name'];
+
+interface ActivityItem {
+  icon: MIName;
+  label: string;
+  sub: string;
+  time: string;
+}
+
+const ACTIVITY: ActivityItem[] = [
+  { icon: 'location-on', label: 'Location Updated', sub: 'Coordinates synced successfully.', time: '10:42 AM' },
+  { icon: 'gavel', label: 'Rights Accessed', sub: "Document 'Stop & ID' viewed.", time: 'YESTERDAY' },
+  { icon: 'timer-off', label: 'Timer Cancelled', sub: 'Safety check-in dismissed.', time: 'OCT 12' },
+];
+
+interface GridTile {
+  icon: MIName;
+  label: string;
+  tab: string;
+}
+
+const GRID: GridTile[] = [
+  { icon: 'timer', label: 'TIMER', tab: 'Timer' },
+  { icon: 'description', label: 'DOCUMENTS', tab: 'Documents' },
+  { icon: 'group', label: 'CONTACTS', tab: 'Contacts' },
+  { icon: 'gavel', label: 'RIGHTS', tab: 'Rights' },
 ];
 
 export const HomeScreen: React.FC = () => {
   const { isActive, contactsNotified, incidentId, triggerPanic } = usePanic();
   const navigation = useNavigation<any>();
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (!isActive) { pulseAnim.setValue(1); return; }
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ])
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [isActive]);
 
   return (
     <SafeAreaView style={s.safe}>
-      {/* Top App Bar */}
       <View style={s.topBar}>
         <View style={s.avatarBtn}>
-          <Text style={s.avatarText}>A</Text>
+          <MaterialIcons name="person" size={18} color={colors.textSecondary} />
         </View>
         <Text style={s.appName}>PAN!C</Text>
         <Pressable style={s.settingsBtn}>
-          <Text style={s.settingsIcon}>⚙️</Text>
+          <MaterialIcons name="settings" size={22} color={colors.textSecondary} />
         </Pressable>
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
 
-        {/* Status Card */}
         <View style={s.statusCard}>
           <View style={s.statusLeft}>
-            <Text style={s.statusIcon}>🛡️</Text>
+            <MaterialIcons name="security" size={20} color={isActive ? colors.primary : colors.textPrimary} />
             <Text style={s.statusLabel}>{isActive ? 'ALERT ACTIVE' : 'PROTECTED'}</Text>
           </View>
-          <View style={s.statusBadge}>
-            <Text style={s.statusBadgeText}>{isActive ? 'ACTIVE' : 'READY'}</Text>
+          <View style={[s.statusBadge, isActive && s.statusBadgeActive]}>
+            <Text style={[s.statusBadgeText, isActive && s.statusBadgeTextActive]}>
+              {isActive ? 'ACTIVE' : 'READY'}
+            </Text>
           </View>
         </View>
 
-        {/* Panic Button */}
         <View style={s.panicWrap}>
-          <PanicButton onPress={() => { triggerPanic().then(() => navigation.navigate('Alert')); }} isActive={isActive} />
+          <PanicButton
+            onPress={() => { triggerPanic().then(() => navigation.navigate('Home')); }}
+            isActive={isActive}
+          />
           {isActive && (
-            <Text style={s.incidentHint}>Incident {incidentId} · {contactsNotified} contacts notified</Text>
+            <Text style={s.incidentHint}>
+              {incidentId} · {contactsNotified} contacts notified
+            </Text>
           )}
         </View>
 
-        {/* 2×2 Grid */}
         <View style={s.grid}>
-          {[
-            { icon: '⏱', label: 'TIMER', tab: 'Timer' },
-            { icon: '📄', label: 'DOCUMENTS', tab: 'Rights' },
-            { icon: '👥', label: 'CONTACTS', tab: 'Contacts' },
-            { icon: '⚖️', label: 'RIGHTS', tab: 'Rights' },
-          ].map((item) => (
+          {GRID.map((item) => (
             <Pressable
-              key={item.tab + item.label}
+              key={item.label}
               style={({ pressed }) => [s.gridTile, pressed && s.gridTilePressed]}
               onPress={() => navigation.navigate(item.tab)}
             >
-              <Text style={s.gridIcon}>{item.icon}</Text>
+              <MaterialIcons name={item.icon} size={26} color={colors.textSecondary} />
               <Text style={s.gridLabel}>{item.label}</Text>
             </Pressable>
           ))}
         </View>
 
-        {/* Recent Activity */}
         <Text style={s.sectionTitle}>RECENT ACTIVITY</Text>
+
         {ACTIVITY.map((a, i) => (
           <View key={i} style={s.activityRow}>
             <View style={s.activityIcon}>
-              <Text>{a.icon}</Text>
+              <MaterialIcons name={a.icon} size={18} color={colors.textSecondary} />
             </View>
             <View style={s.activityInfo}>
               <Text style={s.activityLabel}>{a.label.toUpperCase()}</Text>
@@ -107,63 +115,66 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: spacing.md, height: 56,
+    paddingHorizontal: spacing.md, height: 52,
     borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
-    backgroundColor: colors.background,
   },
   avatarBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 34, height: 34, borderRadius: 17,
     backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.surfaceBorder,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { ...typography.label, color: colors.textPrimary },
   appName: {
-    fontSize: 22, fontWeight: '800', color: colors.primary,
-    letterSpacing: -0.5, textTransform: 'uppercase',
+    fontSize: 20, fontWeight: '800', color: colors.primary,
+    letterSpacing: 1, textTransform: 'uppercase',
   },
-  settingsBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  settingsIcon: { fontSize: 20 },
+  settingsBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { padding: spacing.md, paddingBottom: 100, gap: spacing.md },
+
   statusCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.surfaceBorder,
-    borderRadius: radius.md, padding: spacing.md,
+    borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 14,
   },
-  statusLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  statusIcon: { fontSize: 20 },
-  statusLabel: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase' },
+  statusLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusLabel: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 0.5 },
   statusBadge: {
-    paddingHorizontal: 12, paddingVertical: 4,
+    paddingHorizontal: 12, paddingVertical: 5,
     backgroundColor: colors.surfaceHighest, borderRadius: radius.full,
     borderWidth: 1, borderColor: colors.surfaceBorder,
   },
+  statusBadgeActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   statusBadgeText: {
     fontSize: 11, fontWeight: '700', color: colors.textSecondary,
     letterSpacing: 1.5, textTransform: 'uppercase',
   },
-  panicWrap: { alignItems: 'center', paddingVertical: spacing.xl },
+  statusBadgeTextActive: { color: colors.onPrimary },
+
+  panicWrap: { alignItems: 'center', paddingVertical: spacing.lg },
   incidentHint: {
-    ...typography.bodySm, color: colors.textSecondary,
+    fontSize: 12, color: colors.textSecondary,
     textAlign: 'center', marginTop: spacing.sm,
   },
+
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   gridTile: {
-    width: '48%', backgroundColor: colors.surfaceContainer,
+    width: '48.5%', backgroundColor: colors.surfaceContainer,
     borderWidth: 1, borderColor: colors.surfaceBorder,
     borderRadius: radius.md, padding: spacing.md,
-    minHeight: 100, justifyContent: 'space-between',
+    minHeight: 96, justifyContent: 'space-between',
   },
-  gridTilePressed: { backgroundColor: colors.surfaceElevated },
-  gridIcon: { fontSize: 24, marginBottom: spacing.sm },
+  gridTilePressed: { backgroundColor: colors.surfaceElevated, borderColor: colors.outline },
   gridLabel: {
-    fontSize: 18, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase',
+    fontSize: 15, fontWeight: '700', color: colors.textPrimary,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.sm,
   },
+
   sectionTitle: {
-    fontSize: 14, fontWeight: '700', color: colors.textPrimary,
+    fontSize: 20, fontWeight: '800', color: colors.textPrimary,
     letterSpacing: 1, textTransform: 'uppercase',
+    paddingBottom: spacing.xs,
     borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
-    paddingBottom: spacing.sm, marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   activityRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
@@ -171,11 +182,12 @@ const s = StyleSheet.create({
     borderRadius: radius.md, padding: spacing.md,
   },
   activityIcon: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: colors.surfaceHighest, alignItems: 'center', justifyContent: 'center',
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.surfaceBorder,
+    alignItems: 'center', justifyContent: 'center',
   },
   activityInfo: { flex: 1 },
-  activityLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase' },
+  activityLabel: { fontSize: 12, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase', letterSpacing: 0.5 },
   activitySub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-  activityTime: { fontSize: 11, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase' },
+  activityTime: { fontSize: 10, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase' },
 });

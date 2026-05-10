@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Platform, Pressable, Text, StyleSheet, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { colors, typography } from '../../theme';
 
 interface Props {
@@ -8,33 +9,35 @@ interface Props {
   disabled?: boolean;
 }
 
+const SIZE = 210;
+
 export const PanicButton: React.FC<Props> = ({ onPress, isActive, disabled }) => {
   const pulse1 = useRef(new Animated.Value(1)).current;
   const pulse2 = useRef(new Animated.Value(1)).current;
-  const opacity1 = useRef(new Animated.Value(0.6)).current;
-  const opacity2 = useRef(new Animated.Value(0.4)).current;
+  const opacity1 = useRef(new Animated.Value(0.5)).current;
+  const opacity2 = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
     if (isActive) {
       const anim = Animated.loop(
         Animated.parallel([
           Animated.sequence([
-            Animated.timing(pulse1, { toValue: 1.4, duration: 800, useNativeDriver: true }),
-            Animated.timing(pulse1, { toValue: 1, duration: 800, useNativeDriver: true }),
+            Animated.timing(pulse1, { toValue: 1.35, duration: 900, useNativeDriver: true }),
+            Animated.timing(pulse1, { toValue: 1, duration: 900, useNativeDriver: true }),
           ]),
           Animated.sequence([
-            Animated.timing(opacity1, { toValue: 0, duration: 800, useNativeDriver: true }),
-            Animated.timing(opacity1, { toValue: 0.6, duration: 800, useNativeDriver: true }),
+            Animated.timing(opacity1, { toValue: 0, duration: 900, useNativeDriver: true }),
+            Animated.timing(opacity1, { toValue: 0.5, duration: 900, useNativeDriver: true }),
           ]),
           Animated.sequence([
-            Animated.delay(300),
-            Animated.timing(pulse2, { toValue: 1.7, duration: 800, useNativeDriver: true }),
-            Animated.timing(pulse2, { toValue: 1, duration: 800, useNativeDriver: true }),
+            Animated.delay(350),
+            Animated.timing(pulse2, { toValue: 1.65, duration: 900, useNativeDriver: true }),
+            Animated.timing(pulse2, { toValue: 1, duration: 900, useNativeDriver: true }),
           ]),
           Animated.sequence([
-            Animated.delay(300),
-            Animated.timing(opacity2, { toValue: 0, duration: 800, useNativeDriver: true }),
-            Animated.timing(opacity2, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+            Animated.delay(350),
+            Animated.timing(opacity2, { toValue: 0, duration: 900, useNativeDriver: true }),
+            Animated.timing(opacity2, { toValue: 0.3, duration: 900, useNativeDriver: true }),
           ]),
         ])
       );
@@ -43,25 +46,15 @@ export const PanicButton: React.FC<Props> = ({ onPress, isActive, disabled }) =>
     } else {
       pulse1.setValue(1);
       pulse2.setValue(1);
-      opacity1.setValue(0.6);
-      opacity2.setValue(0.4);
+      opacity1.setValue(0.5);
+      opacity2.setValue(0.3);
     }
   }, [isActive]);
 
   return (
     <View style={styles.wrapper}>
-      {isActive && (
-        <>
-          <Animated.View style={[
-            styles.ring,
-            { transform: [{ scale: pulse2 }], opacity: opacity2 },
-          ]} />
-          <Animated.View style={[
-            styles.ring,
-            { transform: [{ scale: pulse1 }], opacity: opacity1 },
-          ]} />
-        </>
-      )}
+      <Animated.View style={[styles.ring, { transform: [{ scale: pulse2 }], opacity: opacity2 }]} />
+      <Animated.View style={[styles.ring, { transform: [{ scale: pulse1 }], opacity: opacity1 }]} />
       <Pressable
         onPress={onPress}
         disabled={disabled}
@@ -72,17 +65,20 @@ export const PanicButton: React.FC<Props> = ({ onPress, isActive, disabled }) =>
           disabled && styles.disabled,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={isActive ? 'Panic button active' : 'Press to trigger panic alert'}
+        accessibilityLabel={isActive ? 'Panic active — tap to view' : 'Press to trigger panic alert'}
       >
-        <Text style={styles.icon}>{isActive ? '🚨' : '🆘'}</Text>
-        <Text style={styles.label}>{isActive ? 'ACTIVE' : 'PANIC'}</Text>
-        <Text style={styles.sub}>{isActive ? 'Tap to disarm' : 'Hold for 2s'}</Text>
+        <MaterialIcons
+          name={isActive ? 'emergency' : 'warning'}
+          size={44}
+          color={isActive ? '#fff' : colors.onPrimary}
+          style={{ marginBottom: 6 }}
+        />
+        <Text style={styles.label}>{isActive ? 'ACTIVE' : 'TAP NOW'}</Text>
+        <Text style={styles.sub}>{isActive ? 'Emergency in progress' : 'Hold for 2s'}</Text>
       </Pressable>
     </View>
   );
 };
-
-const SIZE = 200;
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -96,7 +92,7 @@ const styles = StyleSheet.create({
     width: SIZE,
     height: SIZE,
     borderRadius: SIZE / 2,
-    backgroundColor: colors.panicRed,
+    backgroundColor: colors.primary,
   },
   button: {
     width: SIZE,
@@ -105,26 +101,37 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 10,
     ...Platform.select({
-      web: { boxShadow: '0 0 20px rgba(226,75,74,0.5)' } as object,
+      web: { boxShadow: '0 0 32px rgba(248,91,88,0.55)' } as object,
       default: {
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
+        shadowOpacity: 0.55,
+        shadowRadius: 24,
       },
     }),
   },
   active: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: '#c0392b',
   },
   pressed: {
     transform: [{ scale: 0.96 }],
-    opacity: 0.9,
+    opacity: 0.92,
   },
   disabled: { opacity: 0.5 },
-  icon: { fontSize: 36, marginBottom: 4 },
-  label: { ...typography.h3, color: colors.white, letterSpacing: 2 },
-  sub: { ...typography.caption, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  label: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.onPrimary,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  sub: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(92,0,9,0.7)',
+    marginTop: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 });

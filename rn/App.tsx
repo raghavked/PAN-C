@@ -4,25 +4,35 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Text, View, StyleSheet, Platform } from 'react-native';
+import { View, Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 
 import { HomeScreen } from './src/screens/HomeScreen';
 import { PanicActiveScreen } from './src/screens/PanicActiveScreen';
 import { ContactsScreen } from './src/screens/ContactsScreen';
 import { TimerScreen } from './src/screens/TimerScreen';
 import { ChatScreen } from './src/screens/ChatScreen';
+import { DocumentsScreen } from './src/screens/DocumentsScreen';
 import { PanicProvider } from './src/context/PanicContext';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { usePanic } from './src/hooks/usePanic';
 import { colors } from './src/theme';
 
 const Tab = createBottomTabNavigator();
 
-const TAB_ICONS: Record<string, { default: string; active: string }> = {
-  Home:     { default: '🚨', active: '🚨' },
-  Alert:    { default: '⚡', active: '⚡' },
-  Timer:    { default: '⏱', active: '⏱' },
-  Contacts: { default: '👥', active: '👥' },
-  Rights:   { default: '⚖️', active: '⚖️' },
+function PanicTab() {
+  const { isActive } = usePanic();
+  return isActive ? <PanicActiveScreen /> : <HomeScreen />;
+}
+
+type TabIconName = React.ComponentProps<typeof MaterialIcons>['name'];
+
+const TAB_ICONS: Record<string, TabIconName> = {
+  Home: 'emergency',
+  Timer: 'timer',
+  Contacts: 'group',
+  Rights: 'gavel',
+  Documents: 'description',
 };
 
 export default function App() {
@@ -36,46 +46,47 @@ export default function App() {
               screenOptions={({ route }) => ({
                 headerShown: false,
                 tabBarStyle: {
-                  backgroundColor: colors.surfaceContainer,
-                  borderTopColor: colors.outlineVariant,
-                  borderTopWidth: 2,
-                  height: Platform.OS === 'web' ? 64 : 72,
-                  paddingBottom: Platform.OS === 'web' ? 8 : 12,
-                  paddingTop: 4,
+                  backgroundColor: colors.surface,
+                  borderTopColor: colors.surfaceBorder,
+                  borderTopWidth: 1,
+                  height: Platform.OS === 'web' ? 60 : 72,
+                  paddingBottom: Platform.OS === 'web' ? 8 : 14,
+                  paddingTop: 6,
                 },
-                tabBarActiveTintColor: colors.onPrimary,
-                tabBarInactiveTintColor: colors.textSecondary,
+                tabBarActiveTintColor: colors.primary,
+                tabBarInactiveTintColor: colors.textMuted,
                 tabBarLabelStyle: {
                   fontSize: 10,
                   fontWeight: '700',
-                  letterSpacing: 0.8,
+                  letterSpacing: 1,
                   textTransform: 'uppercase',
                   marginTop: 2,
                 },
-                tabBarItemStyle: {
-                  paddingVertical: 2,
+                tabBarIcon: ({ focused, color }) => {
+                  const name = TAB_ICONS[route.name] ?? 'circle';
+                  if (route.name === 'Home') {
+                    return (
+                      <View style={{
+                        width: 32, height: 28, borderRadius: 6,
+                        backgroundColor: focused ? colors.primary : colors.surfaceElevated,
+                        alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <MaterialIcons
+                          name={name}
+                          size={16}
+                          color={focused ? colors.onPrimary : colors.textMuted}
+                        />
+                      </View>
+                    );
+                  }
+                  return <MaterialIcons name={name} size={22} color={color} />;
                 },
-                tabBarIcon: ({ focused }) => (
-                  <View style={[styles.iconWrap, focused && styles.iconActive]}>
-                    <Text style={styles.icon}>{TAB_ICONS[route.name]?.default ?? '●'}</Text>
-                  </View>
-                ),
-                tabBarActiveBackgroundColor: 'transparent',
               })}
-              tabBarOptions={{
-                activeTintColor: colors.primary,
-                inactiveTintColor: colors.textSecondary,
-              } as any}
             >
               <Tab.Screen
                 name="Home"
-                component={HomeScreen}
+                component={PanicTab}
                 options={{ tabBarLabel: 'PANIC' }}
-              />
-              <Tab.Screen
-                name="Alert"
-                component={PanicActiveScreen}
-                options={{ tabBarLabel: 'ALERT' }}
               />
               <Tab.Screen
                 name="Timer"
@@ -92,6 +103,11 @@ export default function App() {
                 component={ChatScreen}
                 options={{ tabBarLabel: 'RIGHTS' }}
               />
+              <Tab.Screen
+                name="Documents"
+                component={DocumentsScreen}
+                options={{ tabBarButton: () => null, tabBarLabel: 'DOCS' }}
+              />
             </Tab.Navigator>
           </NavigationContainer>
         </PanicProvider>
@@ -99,15 +115,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-
-const styles = StyleSheet.create({
-  iconWrap: {
-    width: 36, height: 28,
-    alignItems: 'center', justifyContent: 'center',
-    borderRadius: 8,
-  },
-  iconActive: {
-    backgroundColor: colors.primary,
-  },
-  icon: { fontSize: 16 },
-});
