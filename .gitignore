@@ -50,3 +50,7 @@ lerna-debug.log*
 
 # Spec / internal notes
 SPEC_NOTES.md
+*.log
+backend.log
+expo.log
+vite.log
