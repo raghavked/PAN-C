@@ -10,12 +10,14 @@ run = ["sh", "-c", "npm run build && npm run start"]
 deploymentTarget = "cloudrun"
 ignorePorts = false
 
-# Frontend — Vite preview (production build)
 [[ports]]
 localPort = 3000
 externalPort = 80
 
-# Frontend — Vite dev server
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
 [[ports]]
 localPort = 5000
 externalPort = 80
@@ -27,11 +29,6 @@ externalPort = 3000
 [[ports]]
 localPort = 8080
 externalPort = 8080
-
-# Backend — Express API
-[[ports]]
-localPort = 3001
-externalPort = 3001
 
 [env]
 # The backend API URL — Replit automatically assigns a public HTTPS URL.
