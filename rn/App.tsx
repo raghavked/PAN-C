@@ -50,9 +50,11 @@ function MainApp() {
               borderTopColor: colors.surfaceBorder,
               borderTopWidth: 1,
               height: Platform.OS === 'web' ? 64 : 76,
+              paddingHorizontal: 12,
             },
             tabBarItemStyle: {
               flex: 1,
+              maxWidth: Platform.OS === 'web' ? 110 : undefined,
               paddingTop: Platform.OS === 'web' ? 8 : 10,
               paddingBottom: Platform.OS === 'web' ? 8 : 14,
               alignItems: 'center',
