@@ -6,8 +6,24 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react';
+import { Platform } from 'react-native';
 import { apiRequest } from '../utils/apiClient';
 import { storage } from '../utils/storage';
+
+async function registerFcmToken(authToken: string) {
+  if (Platform.OS === 'web') return;
+  try {
+    const Notifications = await import('expo-notifications');
+    const { status } = await Notifications.requestPermissionsAsync();
+    if (status !== 'granted') return;
+    const tokenData = await Notifications.getDevicePushTokenAsync();
+    if (tokenData?.data) {
+      await apiRequest('/auth/fcm-token', 'POST', { fcmToken: tokenData.data }, authToken);
+    }
+  } catch (e) {
+    console.warn('[Auth] FCM token registration skipped:', (e as Error).message);
+  }
+}
 
 const TOKEN_KEY = 'panc_auth_token';
 const PHRASE_KEY = 'panc_safe_phrase';
@@ -76,6 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     storage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
     setUser(data.user);
+    registerFcmToken(data.token).catch(() => {});
   }, []);
 
   const signup = useCallback(async (payload: SignupPayload) => {
@@ -88,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     storage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
     setUser(data.user);
+    registerFcmToken(data.token).catch(() => {});
 
     if (contact?.name) {
       await apiRequest('/contacts', 'POST', contact, data.token).catch(() => {});

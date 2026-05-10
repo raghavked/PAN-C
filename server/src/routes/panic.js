@@ -205,15 +205,42 @@ router.post('/trigger', requireAuth, async (req, res) => {
       .sort({ isPrimary: -1, createdAt: 1 })
       .toArray();
 
-    // Only send FCM to contacts who have the app (fcmToken) AND have push enabled
-    const contactsWithPush = contacts.filter(
-      c => c.fcmToken && (c.notifyVia?.push !== false)
-    );
-    const fcmTokens = contactsWithPush.map(c => c.fcmToken);
+    // Cross-reference contact email/phone with registered FCM tokens in users collection
+    const contactEmails = contacts.filter(c => c.email).map(c => c.email.toLowerCase());
+    const contactPhones = contacts.filter(c => c.phone).map(c => c.phone);
+    const lookupConditions = [
+      ...(contactEmails.length ? [{ email: { $in: contactEmails } }] : []),
+      ...(contactPhones.length ? [{ phone: { $in: contactPhones } }] : []),
+    ];
+    const userTokenMap = {};
+    if (lookupConditions.length) {
+      const registeredUsers = await db.collection('users').find(
+        { $or: lookupConditions, fcmToken: { $exists: true, $ne: null } },
+        { projection: { email: 1, phone: 1, fcmToken: 1 } }
+      ).toArray();
+      registeredUsers.forEach(u => {
+        if (u.fcmToken) {
+          if (u.email) userTokenMap[u.email.toLowerCase()] = u.fcmToken;
+          if (u.phone) userTokenMap[u.phone] = u.fcmToken;
+        }
+      });
+    }
+
+    // Resolve each contact's FCM token: user-registered token takes priority over contact-stored token
+    const resolvedContacts = contacts.map(c => ({
+      ...c,
+      resolvedFcmToken:
+        (c.email && userTokenMap[c.email.toLowerCase()]) ||
+        (c.phone && userTokenMap[c.phone]) ||
+        c.fcmToken || null,
+    }));
+
+    const contactsWithPush = resolvedContacts.filter(c => c.resolvedFcmToken);
+    const fcmTokens = contactsWithPush.map(c => c.resolvedFcmToken);
 
     console.log(
       `[PAN!C] Panic triggered by ${userName} (${req.userEmail}) — ` +
-      `${contacts.length} contacts total, ${fcmTokens.length} with FCM push enabled`
+      `${contacts.length} contacts total, ${fcmTokens.length} with FCM push tokens resolved`
     );
 
     // ── Build the base URL for links ──────────────────────────────────────────
@@ -294,7 +321,7 @@ router.post('/trigger', requireAuth, async (req, res) => {
         : `${userName} pushed their button that law enforcement authorities are putting them in a dangerous situation. Location: ${locationDisplay}. Please access next steps here: ${helpLink}`;
 
       const result = await sendNotification(
-        contact.fcmToken,
+        contact.resolvedFcmToken,
         notifTitle,
         contactBody,
         {
@@ -316,20 +343,18 @@ router.post('/trigger', requireAuth, async (req, res) => {
         console.log(`[PAN!C] FCM sent to ${contact.name} (canSeeDocuments=${contact.canSeeDocuments !== false})`);
       } else {
         failedCount++;
-        failedTokens.push(contact.fcmToken);
+        failedTokens.push(contact.resolvedFcmToken);
         console.warn(`[PAN!C] FCM failed for ${contact.name}: ${result.error}`);
       }
     }
 
     // ── Build contactsNotified array ──────────────────────────────────────────
-    const contactsNotified = contacts.map(c => {
-      const pushEnabled = !!c.fcmToken && (c.notifyVia?.push !== false);
+    const contactsNotified = resolvedContacts.map(c => {
+      const pushEnabled = !!c.resolvedFcmToken;
       let status;
-      if (!c.fcmToken) {
+      if (!c.resolvedFcmToken) {
         status = 'no_app';
-      } else if (c.notifyVia?.push === false) {
-        status = 'push_disabled';
-      } else if (failedTokens.includes(c.fcmToken)) {
+      } else if (failedTokens.includes(c.resolvedFcmToken)) {
         status = 'failed';
       } else {
         status = 'sent';
@@ -338,11 +363,11 @@ router.post('/trigger', requireAuth, async (req, res) => {
         contactId:       c._id,
         name:            c.name,
         phone:           c.phone || null,
-        hasApp:          !!c.fcmToken,
+        hasApp:          pushEnabled,
         pushEnabled,
         canSeeDocuments: c.canSeeDocuments !== false,
         notifiedAt:      new Date(),
-        method:          pushEnabled ? 'fcm_push' : (c.fcmToken ? 'push_disabled' : 'no_app'),
+        method:          pushEnabled ? 'fcm_push' : 'no_app',
         status,
       };
     });
@@ -436,7 +461,32 @@ router.post('/disarm', requireAuth, async (req, res) => {
     const contacts = await db.collection('contacts')
       .find({ userEmail: req.userEmail })
       .toArray();
-    const allClearTokens = contacts.filter(c => c.fcmToken).map(c => c.fcmToken);
+
+    // Cross-reference contact email/phone with registered FCM tokens in users collection
+    const disarmEmails = contacts.filter(c => c.email).map(c => c.email.toLowerCase());
+    const disarmPhones = contacts.filter(c => c.phone).map(c => c.phone);
+    const disarmConditions = [
+      ...(disarmEmails.length ? [{ email: { $in: disarmEmails } }] : []),
+      ...(disarmPhones.length ? [{ phone: { $in: disarmPhones } }] : []),
+    ];
+    const disarmTokenMap = {};
+    if (disarmConditions.length) {
+      const disarmUsers = await db.collection('users').find(
+        { $or: disarmConditions, fcmToken: { $exists: true, $ne: null } },
+        { projection: { email: 1, phone: 1, fcmToken: 1 } }
+      ).toArray();
+      disarmUsers.forEach(u => {
+        if (u.fcmToken) {
+          if (u.email) disarmTokenMap[u.email.toLowerCase()] = u.fcmToken;
+          if (u.phone) disarmTokenMap[u.phone] = u.fcmToken;
+        }
+      });
+    }
+    const allClearTokens = [...new Set(contacts.map(c =>
+      (c.email && disarmTokenMap[c.email.toLowerCase()]) ||
+      (c.phone && disarmTokenMap[c.phone]) ||
+      c.fcmToken || null
+    ).filter(Boolean))];
 
     if (allClearTokens.length > 0) {
       await sendToMany(
