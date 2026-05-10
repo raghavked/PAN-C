@@ -14,10 +14,6 @@ const VOICE_ID = process.env.EXPO_PUBLIC_ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8
 const BASE_URL = 'https://api.elevenlabs.io/v1';
 
 export const elevenLabsService = {
-  /**
-   * Generate and play the panic alert voice message.
-   * Returns the Sound object so the caller can stop it on disarm.
-   */
   async playPanicAlert(language = 'English'): Promise<Audio.Sound | null> {
     const text = language === 'Spanish'
       ? 'AYUDA. MIGRA. Estoy en peligro. Por favor llama a mis contactos de emergencia ahora.'
@@ -29,11 +25,10 @@ export const elevenLabsService = {
     }
 
     try {
+      // expo-av v15 compatible AudioMode (removed shouldDuckAndroid, playThroughEarpieceAndroid)
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
       });
 
       const res = await fetch(`${BASE_URL}/text-to-speech/${VOICE_ID}`, {
@@ -56,7 +51,9 @@ export const elevenLabsService = {
       const arrayBuffer = await res.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       let binary = '';
-      bytes.forEach((b) => { binary += String.fromCharCode(b); });
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
       const base64 = btoa(binary);
       const uri = `data:audio/mpeg;base64,${base64}`;
 
