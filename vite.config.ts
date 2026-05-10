@@ -6,12 +6,25 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
-    // Allow all hosts — needed for sandbox proxy and Replit preview
+    // Allow all hosts — needed for Replit preview and sandbox proxy
     allowedHosts: true,
+    proxy: {
+      // In dev mode, proxy /api calls to the Express backend on port 3001
+      // This means the frontend only needs to call /api/... (no full URL needed in dev)
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
   preview: {
-    port: 5173,
+    // Replit maps externalPort 80 → localPort 3000
+    port: 3000,
     host: '0.0.0.0',
     allowedHosts: true,
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
   },
 })

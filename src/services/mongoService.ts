@@ -21,7 +21,7 @@
  *     VITE_API_URL       — URL of your backend, e.g. https://pan-c-api.replit.app/api
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 interface MongoDocument {
   [key: string]: unknown;
