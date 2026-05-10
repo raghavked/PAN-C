@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, Text, StyleSheet, View } from 'react-native';
+import { Animated, Platform, Pressable, Text, StyleSheet, View } from 'react-native';
 import { colors, typography } from '../../theme';
 
 interface Props {
@@ -105,11 +105,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
     elevation: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 0 20px rgba(226,75,74,0.5)' } as object,
+      default: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+      },
+    }),
   },
   active: {
     backgroundColor: colors.primaryDark,
