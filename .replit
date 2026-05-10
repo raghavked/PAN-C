@@ -1,17 +1,24 @@
-run = "npm run dev"
-entrypoint = "src/main.tsx"
+modules = ["nodejs-20"]
+[core]
+entrypoint = "index.js"
 
 [nix]
-channel = "stable-23_11"
-
-[deployment]
-run = ["sh", "-c", "npm run build && npm run preview"]
-deploymentTarget = "cloudrun"
-ignorePorts = false
-
-[[ports]]
-localPort = 3000
-externalPort = 80
+channel = "stable-24.05"
 
 [env]
-VITE_API_URL = "http://localhost:3000/api"
+REPLIT_LANGUAGE = "nodejs"
+
+[[ports]]
+localPort = 3001
+externalPort = 3001
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
+[[ports]]
+localPort = 5001
+externalPort = 80
+
+[agent]
+expertMode = true
