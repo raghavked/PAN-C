@@ -1,6 +1,7 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Animated, SafeAreaView, ScrollView, Pressable, TextInput, Platform,
+  View, Text, StyleSheet, Animated, ScrollView, Pressable, TextInput, Platform,
   KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -48,7 +49,7 @@ export const PanicActiveScreen: React.FC = () => {
 
   if (!isActive) {
     return (
-      <SafeAreaView style={s.safe}>
+      <SafeAreaView style={s.safe} edges={["top","left","right"]}>
         <View style={s.topBar}>
           <Text style={s.appName}>PAN!C</Text>
         </View>
@@ -64,7 +65,7 @@ export const PanicActiveScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <View style={s.topBar}>
         <Text style={s.appName}>PAN!C</Text>
       </View>

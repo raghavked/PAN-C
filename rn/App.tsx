@@ -2,7 +2,7 @@ import 'react-native-gesture-handler';
 import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, ActivityIndicator, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -39,6 +39,11 @@ const TAB_ICONS: Record<string, TabIconName> = {
 };
 
 function MainApp() {
+  const insets = useSafeAreaInsets();
+  // Tab bar visible height (icon + label) + home indicator safe area
+  const TAB_BAR_INNER = Platform.OS === 'web' ? 64 : 56;
+  const tabBarHeight = TAB_BAR_INNER + (Platform.OS === 'ios' ? insets.bottom : 0);
+
   return (
     <PanicProvider>
       <NavigationContainer>
@@ -49,14 +54,15 @@ function MainApp() {
               backgroundColor: colors.surface,
               borderTopColor: colors.surfaceBorder,
               borderTopWidth: 1,
-              height: Platform.OS === 'web' ? 64 : 76,
+              height: tabBarHeight,
+              // Let the navigator handle safe area padding natively
+              paddingBottom: Platform.OS === 'ios' ? insets.bottom : 4,
+              paddingTop: 8,
               paddingHorizontal: 12,
             },
             tabBarItemStyle: {
               flex: 1,
               maxWidth: Platform.OS === 'web' ? 110 : undefined,
-              paddingTop: Platform.OS === 'web' ? 8 : 10,
-              paddingBottom: Platform.OS === 'web' ? 8 : 14,
               alignItems: 'center',
               justifyContent: 'center',
             },

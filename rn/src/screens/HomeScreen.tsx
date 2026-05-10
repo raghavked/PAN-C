@@ -1,9 +1,11 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, SafeAreaView, Pressable, Linking, Modal,
+  View, Text, ScrollView, StyleSheet, Pressable, Linking, Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { PanicButton } from '../components/panic/PanicButton';
 import { colors, spacing, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
@@ -51,9 +53,10 @@ export const HomeScreen: React.FC = () => {
   const { isActive, contactsNotified, incidentId, triggerPanic } = usePanic();
   const { pendingAlert, dismiss } = usePendingAlert();
   const navigation = useNavigation<any>();
+  const tabBarHeight = useBottomTabBarHeight();
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <View style={s.topBar}>
         <View style={s.avatarBtn}>
           <MaterialIcons name="person" size={18} color={colors.textSecondary} />
@@ -64,7 +67,7 @@ export const HomeScreen: React.FC = () => {
         </Pressable>
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.scroll} contentContainerStyle={[s.content, { paddingBottom: tabBarHeight + 16 }]} showsVerticalScrollIndicator={false}>
 
         {!!pendingAlert && (
           <View style={s.alertBanner}>

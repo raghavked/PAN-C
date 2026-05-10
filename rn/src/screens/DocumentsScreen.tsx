@@ -1,6 +1,7 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, SafeAreaView, Pressable,
+  View, Text, StyleSheet, ScrollView, Pressable,
   ActivityIndicator, Modal, TextInput, Alert, Linking, Platform,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
@@ -259,7 +260,7 @@ export const DocumentsScreen: React.FC = () => {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <View style={s.topBar}>
         <Text style={s.appName}>PAN!C</Text>
         <Pressable style={s.uploadBtn} onPress={() => { setShowUpload(true); setUploadError(null); }}>
