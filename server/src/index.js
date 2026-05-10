@@ -12,6 +12,7 @@ const chatRoutes = require('./routes/chat');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+let mongoConnected = false;
 
 // Middleware
 app.use(cors({
@@ -21,9 +22,9 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Health check
+// Health check (must be before 404 handler)
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', app: 'PAN!C', version: '1.0.0' });
+  res.json({ status: 'ok', app: 'PAN!C', version: '1.0.0', mongo: mongoConnected ? 'connected' : 'reconnecting' });
 });
 
 // Routes
@@ -45,12 +46,21 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
-// Start
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚨 PAN!C server running on port ${PORT}`);
-  });
-}).catch((err) => {
-  console.error('Failed to connect to MongoDB:', err);
-  process.exit(1);
+// Start — server boots immediately; MongoDB connection retried in background
+app.listen(PORT, () => {
+  console.log(`🚨 PAN!C server running on port ${PORT}`);
 });
+
+async function connectWithRetry(attempt = 1) {
+  try {
+    await connectDB();
+    mongoConnected = true;
+  } catch (err) {
+    const wait = Math.min(attempt * 5000, 30000);
+    console.error(`⚠️  MongoDB connection attempt ${attempt} failed: ${err.message}`);
+    console.log(`🔄 Retrying in ${wait / 1000}s...`);
+    setTimeout(() => connectWithRetry(attempt + 1), wait);
+  }
+}
+
+connectWithRetry();
