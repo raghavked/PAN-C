@@ -30,6 +30,10 @@ externalPort = 3000
 localPort = 8080
 externalPort = 8080
 
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
 [env]
 # The backend API URL — Replit automatically assigns a public HTTPS URL.
 # After first deploy, replace this with your actual Replit app URL:
@@ -61,4 +65,4 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd rn && REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN npx expo start --port 8080"
+args = "cd rn && npx expo start --tunnel"
