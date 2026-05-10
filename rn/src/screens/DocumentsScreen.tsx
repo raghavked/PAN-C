@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, SafeAreaView, Pressable,
   ActivityIndicator, Modal, TextInput, Alert, Linking, Platform,
@@ -6,6 +6,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { api, apiRequest } from '../utils/apiClient';
 import { storage } from '../utils/storage';
 import { colors, spacing, radius } from '../theme';
@@ -76,6 +77,7 @@ function isExpired(expiresAt?: string) {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export const DocumentsScreen: React.FC = () => {
+  const tabBarHeight = useBottomTabBarHeight();
   const [docs, setDocs] = useState<VaultDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -266,7 +268,7 @@ export const DocumentsScreen: React.FC = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[s.content, { paddingBottom: tabBarHeight + 16 }]} showsVerticalScrollIndicator={false}>
         <View style={s.pageHeader}>
           <Text style={s.pageTitle}>VAULT</Text>
           <Text style={s.pageSub}>

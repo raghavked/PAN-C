@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Animated, SafeAreaView, ScrollView, Pressable, TextInput, Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { colors, spacing, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
 
 
 export const PanicActiveScreen: React.FC = () => {
   const { isActive, incidentId, contactsNotified, timer, checkIn, disarmPanic, rightsReminder } = usePanic();
+  const tabBarHeight = useBottomTabBarHeight();
   const [phrase, setPhrase] = useState('');
   const [disarmError, setDisarmError] = useState('');
   const [disarming, setDisarming] = useState(false);
@@ -71,7 +74,12 @@ export const PanicActiveScreen: React.FC = () => {
         <Text style={s.emergencyText}>EMERGENCY ACTIVE</Text>
       </Animated.View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 20}
+      >
+      <ScrollView contentContainerStyle={[s.content, { paddingBottom: tabBarHeight + 24 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         <View style={s.audioCard}>
           <View style={s.audioLeft}>
@@ -176,6 +184,7 @@ export const PanicActiveScreen: React.FC = () => {
         </View>
 
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -206,7 +215,7 @@ const s = StyleSheet.create({
     letterSpacing: 2, textTransform: 'uppercase',
   },
 
-  content: { padding: spacing.md, gap: spacing.md, paddingBottom: 100 },
+  content: { padding: spacing.md, gap: spacing.md },
 
   audioCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

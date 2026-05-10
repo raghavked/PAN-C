@@ -33,12 +33,21 @@ function resolveApiBase(): string {
       (Constants.manifest as { hostUri?: string } | null)?.hostUri;
 
     if (hostUri) {
-      // hostUri may include port, e.g. "pm0-89w-anonymous-8081.exp.direct"
-      // or "192.168.1.5:8081" for LAN. Strip any trailing path.
+      // hostUri is the Metro bundler host, e.g. "pm0-89w-anonymous-8081.exp.direct"
+      // or "192.168.1.5:8081" for LAN.
+      // For exp.direct tunnels: ngrok assigns a separate tunnel per port.
+      // The backend runs on port 3001 — its tunnel hostname is derived by replacing
+      // the Metro port suffix (8081) with 3001 in the subdomain.
+      // e.g. pm0-89w-anonymous-8081.exp.direct → pm0-89w-anonymous-3001.exp.direct
       const host = hostUri.split('/')[0];
-      // exp.direct tunnels use HTTPS; LAN addresses use HTTP
-      const scheme = host.includes('exp.direct') ? 'https' : 'http';
-      return `${scheme}://${host}`;
+      if (host.includes('exp.direct')) {
+        // Replace the port number in the subdomain
+        const backendHost = host.replace('-8081.exp.direct', '-3001.exp.direct');
+        return `https://${backendHost}`;
+      }
+      // LAN: use the IP with port 3001 directly
+      const ip = host.split(':')[0];
+      return `http://${ip}:3001`;
     }
   }
 

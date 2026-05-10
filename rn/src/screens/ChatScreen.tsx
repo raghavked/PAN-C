@@ -4,6 +4,7 @@ import {
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { colors, spacing, radius } from '../theme';
 import { geminiService, GeminiMessage } from '../services/geminiService';
 
@@ -32,6 +33,7 @@ const WELCOME: Message = {
 };
 
 export const ChatScreen: React.FC = () => {
+  const tabBarHeight = useBottomTabBarHeight();
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -147,7 +149,7 @@ export const ChatScreen: React.FC = () => {
           ))}
         </ScrollView>
 
-        <View style={s.inputRow}>
+        <View style={[s.inputRow, { paddingBottom: tabBarHeight > 0 ? tabBarHeight - 8 : 8 }]}>
           <TextInput
             style={s.input}
             placeholder="Ask about your rights…"

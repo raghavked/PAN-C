@@ -39,9 +39,14 @@ export const LoginScreen: React.FC<Props> = ({ onGoSignup }) => {
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={s.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={s.header}>
             <Text style={s.logo}>PAN!C</Text>
             <Text style={s.tagline}>Personal Alert Network · Community</Text>
@@ -132,7 +137,7 @@ export const LoginScreen: React.FC<Props> = ({ onGoSignup }) => {
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.lg },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.lg, paddingBottom: 40 },
 
   header: { alignItems: 'center', gap: 6 },
   logo: { fontSize: 48, fontWeight: '900', color: colors.primary, letterSpacing: 4 },
