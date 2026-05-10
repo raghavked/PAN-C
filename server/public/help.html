@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PAN!C — Emergency Next Steps</title>
+  <style>
+    :root {
+      --red: #E24B4A;
+      --red-dark: #C13B3A;
+      --bg: #0D0D0D;
+      --surface: #1A1A1A;
+      --surface2: #242424;
+      --border: #2E2E2E;
+      --text: #F5F5F5;
+      --text-muted: #9A9A9A;
+      --green: #4CAF50;
+      --yellow: #F5A623;
+      --blue: #4A90E2;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* Alert Banner */
+    .alert-banner {
+      background: var(--red);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .alert-banner .pulse {
+      width: 14px; height: 14px;
+      background: white;
+      border-radius: 50%;
+      animation: pulse 1.2s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+    .alert-banner h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.5px;
+    }
+    .alert-banner p {
+      font-size: 13px;
+      color: rgba(255,255,255,0.85);
+      margin-top: 2px;
+    }
+
+    /* Incident Info */
+    .incident-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .incident-bar span strong { color: var(--text); }
+
+    /* Main */
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+    }
+
+    /* Section */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .section-icon {
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .icon-red { background: rgba(226,75,74,0.15); }
+    .icon-blue { background: rgba(74,144,226,0.15); }
+    .icon-green { background: rgba(76,175,80,0.15); }
+    .icon-yellow { background: rgba(245,166,35,0.15); }
+
+    .section h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .section h2 span {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* Steps */
+    .steps { list-style: none; }
+    .steps li {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .steps li:last-child { border-bottom: none; padding-bottom: 0; }
+    .step-num {
+      width: 24px; height: 24px;
+      background: var(--red);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .steps li strong { color: var(--text); display: block; margin-bottom: 2px; }
+    .steps li p { color: var(--text-muted); }
+
+    /* Rights */
+    .rights-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 500px) { .rights-grid { grid-template-columns: 1fr; } }
+    .right-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .right-card .label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+    .right-card p {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    /* Hotlines */
+    .hotlines { display: flex; flex-direction: column; gap: 10px; }
+    .hotline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      text-decoration: none;
+      transition: border-color 0.2s;
+    }
+    .hotline:hover { border-color: var(--red); }
+    .hotline-info strong {
+      font-size: 14px;
+      color: var(--text);
+      display: block;
+    }
+    .hotline-info span {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .hotline-number {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--red);
+    }
+
+    /* Script */
+    .script-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--blue);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      font-style: italic;
+      margin-bottom: 10px;
+    }
+    .script-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+      font-style: normal;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 24px 20px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      margin-top: 24px;
+    }
+    .footer strong { color: var(--red); }
+
+    /* Loading state */
+    #incident-name { color: var(--red); }
+    #incident-id, #incident-time, #incident-location { color: var(--text); }
+  </style>
+  <!-- Google Fonts fallback -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Alert Banner -->
+  <div class="alert-banner">
+    <div class="pulse"></div>
+    <div>
+      <h1>PAN!C — EMERGENCY ALERT ACTIVE</h1>
+      <p id="banner-sub">Someone you know needs your help right now.</p>
+    </div>
+  </div>
+
+  <!-- Incident Info Bar -->
+  <div class="incident-bar">
+    <span>Person: <strong id="incident-name">Loading...</strong></span>
+    <span>Incident ID: <strong id="incident-id">—</strong></span>
+    <span>Time: <strong id="incident-time">—</strong></span>
+    <span>Location: <strong id="incident-location">—</strong></span>
+  </div>
+
+  <div class="container">
+
+    <!-- IMMEDIATE STEPS -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon icon-red">🚨</div>
+        <h2>Immediate Steps <span>Do these right now</span></h2>
+      </div>
+      <ol class="steps">
+        <li>
+          <div class="step-num">1</div>
+          <div>
+            <strong>Do not panic — stay calm and focused</strong>
+            <p>Your calm presence is the most important thing you can offer. Take a breath before acting.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">2</div>
+          <div>
+            <strong>Call an immigration attorney immediately</strong>
+            <p>Use the hotlines below. Many offer 24/7 emergency lines. Have the incident ID ready: <strong id="step-incident-id" style="color:var(--red)">—</strong></p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">3</div>
+          <div>
+            <strong>Go to the location if safe to do so</strong>
+            <p>Bring a witness. Document everything with video. Do not interfere with officers but observe and record from a safe distance.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">4</div>
+          <div>
+            <strong>Access their documents below</strong>
+            <p>Their important documents have been shared with you. Download and have them ready for the attorney.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">5</div>
+          <div>
+            <strong>Post to social media if appropriate</strong>
+            <p>Public visibility can create accountability. Share the incident ID and location if the person consented to this.</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <!-- LEGAL RIGHTS -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon icon-blue">⚖️</div>
+        <h2>Know Their Rights <span>What the detained person can say and do</span></h2>
+      </div>
+      <div class="rights-grid">
+        <div class="right-card">
+          <div class="label">Right to Remain Silent</div>
+          <p>They do not have to answer questions about their immigration status, where they were born, or how they entered the US.</p>
+        </div>
+        <div class="right-card">
+          <div class="label">Right to Refuse Entry</div>
+          <p>ICE cannot enter a home without a judicial warrant signed by a judge. A deportation order is NOT a judicial warrant.</p>
+        </div>
+        <div class="right-card">
+          <div class="label">Right to an Attorney</div>
+          <p>They have the right to speak with a lawyer before answering questions. They can say: "I want to speak to a lawyer."</p>
+        </div>
+        <div class="right-card">
+          <div class="label">Right to Make Calls</div>
+          <p>If detained, they have the right to make phone calls. They should call their attorney or a trusted contact immediately.</p>
+        </div>
+        <div class="right-card">
+          <div class="label">Do Not Sign Anything</div>
+          <p>They should not sign any documents without speaking to an attorney first. Signing may waive important rights.</p>
+        </div>
+        <div class="right-card">
+          <div class="label">Record Everything</div>
+          <p>Bystanders have the right to record ICE activity in public spaces. Do not interfere — just document.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- WHAT TO SAY -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon icon-yellow">💬</div>
+        <h2>What They Can Say <span>Scripts for the detained person</span></h2>
+      </div>
+      <div class="script-box">
+        <div class="script-label">If asked about immigration status</div>
+        "I am exercising my right to remain silent. I do not wish to answer questions about my immigration status. I want to speak with an attorney."
+      </div>
+      <div class="script-box">
+        <div class="script-label">If ICE tries to enter their home</div>
+        "I do not consent to your entry. Do you have a judicial warrant signed by a judge? Please slide it under the door."
+      </div>
+      <div class="script-box">
+        <div class="script-label">If being detained</div>
+        "Am I free to go? I am not resisting, but I do not consent to this detention. I want to call my attorney immediately."
+      </div>
+    </div>
+
+    <!-- HOTLINES -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon icon-green">📞</div>
+        <h2>Emergency Hotlines <span>Call these now</span></h2>
+      </div>
+      <div class="hotlines">
+        <a class="hotline" href="tel:18888289625">
+          <div class="hotline-info">
+            <strong>ACLU Immigrants' Rights Project</strong>
+            <span>24/7 emergency immigration line</span>
+          </div>
+          <div class="hotline-number">1-888-828-9625</div>
+        </a>
+        <a class="hotline" href="tel:18004486463">
+          <div class="hotline-info">
+            <strong>National Immigration Law Center</strong>
+            <span>Legal resources and referrals</span>
+          </div>
+          <div class="hotline-number">1-800-448-6463</div>
+        </a>
+        <a class="hotline" href="tel:18558282752">
+          <div class="hotline-info">
+            <strong>United We Dream Hotline</strong>
+            <span>ICE raid response and support</span>
+          </div>
+          <div class="hotline-number">1-855-828-2752</div>
+        </a>
+        <a class="hotline" href="tel:18004200900">
+          <div class="hotline-info">
+            <strong>RAICES Emergency Line</strong>
+            <span>Rapid response legal support</span>
+          </div>
+          <div class="hotline-number">1-800-420-0900</div>
+        </a>
+        <a class="hotline" href="tel:911">
+          <div class="hotline-info">
+            <strong>Emergency Services</strong>
+            <span>If there is immediate physical danger</span>
+          </div>
+          <div class="hotline-number">911</div>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <p>This page was generated by <strong>PAN!C</strong> — Personal Alert Network + Interactive Crisis Communication</p>
+    <p style="margin-top:6px;">Incident ID: <span id="footer-incident-id">—</span> &nbsp;|&nbsp; This link expires 72 hours after the alert was triggered.</p>
+  </div>
+
+  <script>
+    // Parse incident data from URL query params
+    const params = new URLSearchParams(window.location.search);
+    const name     = params.get('name')     || 'Someone you know';
+    const id       = params.get('id')       || '—';
+    const time     = params.get('time')     || new Date().toLocaleString();
+    const lat      = params.get('lat');
+    const lng      = params.get('lng');
+
+    const locationStr = (lat && lng)
+      ? `${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}`
+      : 'Location unavailable';
+
+    // Populate fields
+    document.getElementById('incident-name').textContent = name;
+    document.getElementById('incident-id').textContent = id;
+    document.getElementById('incident-time').textContent = new Date(time).toLocaleString();
+    document.getElementById('incident-location').textContent = locationStr;
+    document.getElementById('step-incident-id').textContent = id;
+    document.getElementById('footer-incident-id').textContent = id;
+    document.getElementById('banner-sub').textContent =
+      `${name} pushed their PAN!C button. Law enforcement authorities may be putting them in a dangerous situation.`;
+  </script>
+
+</body>
+</html>

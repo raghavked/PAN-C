@@ -1,6 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { connectDB } = require('./db');
 
 const authRoutes = require('./routes/auth');
@@ -21,6 +22,12 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Serve the emergency help HTML page at /help
+app.use('/help', express.static(path.join(__dirname, '../public')));
+app.get('/help', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/help.html'));
+});
 
 // Health check (must be before 404 handler)
 app.get('/health', (req, res) => {
