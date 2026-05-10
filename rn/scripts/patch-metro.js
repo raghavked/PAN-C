@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
  * Patches @expo/metro-config serializer to handle modules with undefined
- * `path` or `absolutePath` — a bug introduced when react-native@0.79.6
- * added virtual modules that lack a file path.
+ * `path` or `absolutePath` — a bug triggered by react-native@0.79.6 virtual
+ * modules that have no file path set.
  *
- * Two call sites in build/serializer/fork/js.js crash in dev mode:
- *   1. path.relative(projectRoot, module.path)        — module.path can be undefined
- *   2. path.relative(serverRoot, dependency.absolutePath) — absolutePath can be undefined
+ * This script is idempotent: it checks whether each patch is already present
+ * before writing, so running it multiple times is always safe.
  */
 const fs = require('fs');
 const path = require('path');
@@ -24,51 +23,71 @@ const file = path.join(
 );
 
 if (!fs.existsSync(file)) {
-  console.log('[patch-metro] File not found, skipping:', file);
+  console.log('[patch-metro] File not found, skipping.');
   process.exit(0);
 }
 
 let src = fs.readFileSync(file, 'utf8');
 let changed = false;
 
-// Patch 1: guard module.path before path.relative
-const BAD1 = 'params.push(path_1.default.relative(options.projectRoot, module.path));';
-const GOOD1 = 'if (module.path != null) params.push(path_1.default.relative(options.projectRoot, module.path));';
-if (src.includes(BAD1)) {
-  src = src.replace(BAD1, GOOD1);
+// ── Patch 1 ────────────────────────────────────────────────────────────────
+// Guard module.path before calling path.relative in dev mode.
+// Marker: the raw (unpatched) line contains exactly the original push call.
+const RAW1 = 'params.push(path_1.default.relative(options.projectRoot, module.path));';
+const PATCHED1_MARKER = 'if (module.path != null) params.push(path_1.default.relative(options.projectRoot, module.path));';
+
+if (src.includes(RAW1) && !src.includes(PATCHED1_MARKER)) {
+  src = src.replace(RAW1, PATCHED1_MARKER);
   changed = true;
   console.log('[patch-metro] Applied patch 1: guard module.path');
+} else if (src.includes(PATCHED1_MARKER)) {
+  // Already clean — ensure no stacking (triple guards)
+  while (src.includes('if (module.path != null) if (module.path != null)')) {
+    src = src.replace(
+      'if (module.path != null) if (module.path != null) params.push(path_1.default.relative(options.projectRoot, module.path));',
+      PATCHED1_MARKER
+    );
+    changed = true;
+    console.log('[patch-metro] Cleaned stacked patch 1');
+  }
 }
 
-// Patch 2: guard dependency.absolutePath before path.relative
-const BAD2 = 'const bundlePath = path_1.default.relative(options.serverRoot, dependency.absolutePath);';
-const GOOD2 = [
-  'if (dependency.absolutePath == null) { /* skip split bundle path — absolutePath undefined */ }',
-  '                    else {',
-  '                    const bundlePath = path_1.default.relative(options.serverRoot, dependency.absolutePath);',
-  '                    paths[id] =',
-  "                        '/' +",
-  '                            path_1.default.join(path_1.default.dirname(bundlePath), ',
-  '                            // Strip the file extension',
-  "                            path_1.default.basename(bundlePath, path_1.default.extname(bundlePath))) +",
-  "                            '.bundle?' +",
-  '                            searchParams.toString();',
-  '                    }',
-].join('\n');
+// ── Patch 2 ────────────────────────────────────────────────────────────────
+// Guard dependency.absolutePath in the async split-bundle path block.
+const RAW2 = 'const bundlePath = path_1.default.relative(options.serverRoot, dependency.absolutePath);';
+const PATCHED2_MARKER = 'if (dependency.absolutePath != null) {';
 
-// Only apply patch 2 if patch 1 already fixed the nearby block but this one is still raw
-const ALREADY2 = 'if (dependency.absolutePath == null)';
-if (src.includes(BAD2) && !src.includes(ALREADY2)) {
-  // Replace the entire bundlePath block
-  const blockRe = /const bundlePath = path_1\.default\.relative\(options\.serverRoot, dependency\.absolutePath\);[\s\S]*?\.bundle\?' \+\n\s+searchParams\.toString\(\);/;
-  src = src.replace(blockRe, GOOD2);
+// If the raw line still exists AND our guard isn't immediately above it, apply.
+if (src.includes(RAW2) && !src.includes(PATCHED2_MARKER)) {
+  src = src.replace(
+    `                    ${RAW2}
+                    paths[id] =
+                        '/' +
+                            path_1.default.join(path_1.default.dirname(bundlePath), 
+                            // Strip the file extension
+                            path_1.default.basename(bundlePath, path_1.default.extname(bundlePath))) +
+                            '.bundle?' +
+                            searchParams.toString();`,
+    `                    ${PATCHED2_MARKER}
+                        const bundlePath = path_1.default.relative(options.serverRoot, dependency.absolutePath);
+                        paths[id] =
+                            '/' +
+                                path_1.default.join(path_1.default.dirname(bundlePath),
+                                // Strip the file extension
+                                path_1.default.basename(bundlePath, path_1.default.extname(bundlePath))) +
+                                '.bundle?' +
+                                searchParams.toString();
+                    }`
+  );
   changed = true;
   console.log('[patch-metro] Applied patch 2: guard dependency.absolutePath');
+} else {
+  console.log('[patch-metro] Patch 2 already applied or not needed.');
 }
 
 if (changed) {
   fs.writeFileSync(file, src, 'utf8');
   console.log('[patch-metro] Patches written successfully.');
 } else {
-  console.log('[patch-metro] No patches needed (already applied or pattern not found).');
+  console.log('[patch-metro] No changes needed — patches already in place.');
 }
