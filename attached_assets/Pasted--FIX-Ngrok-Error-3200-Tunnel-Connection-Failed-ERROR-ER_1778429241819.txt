@@ -1,0 +1,306 @@
+# 🔧 FIX: Ngrok Error 3200 - Tunnel Connection Failed
+
+**ERROR**: ERR_NGROK_3200 (or similar ngrok error)  
+**MEANING**: Cannot establish tunnel connection to Ngrok service  
+**CAUSE**: Ngrok service down, network blocked, or rate limit hit
+
+---
+
+## QUICK DIAGNOSIS
+
+### What is Ngrok?
+
+Ngrok creates a secure tunnel from your local machine to the internet, allowing users to access your Expo app from anywhere without being on your WiFi.
+
+```
+Your Replit → Ngrok Tunnel → User's Phone
+(localhost)   (https://xxx.exp.direct)
+```
+
+### Why Error 3200?
+
+- ❌ Ngrok service is down
+- ❌ Network connectivity issue
+- ❌ Rate limit exceeded (too many tunnel requests)
+- ❌ Firewall blocking tunnel
+- ❌ Old Expo CLI version
+
+---
+
+## IMMEDIATE FIXES
+
+### Fix 1: Check Ngrok Status
+
+Go to: https://status.ngrok.com/
+
+**If showing outages (red/yellow):**
+- Wait 5-15 minutes for service to recover
+- Nothing you can do on your end
+
+**If showing all green:**
+- Problem is local, continue with fixes
+
+---
+
+### Fix 2: Restart Expo with Localhost (Fastest)
+
+If users are testing locally on same network:
+
+```bash
+cd rn
+
+# Kill current session
+pkill -f "expo"
+
+# Start with localhost instead of tunnel
+npx expo start --localhost
+
+# Output should show:
+# ✓ Metro ready at ws://192.168.x.x:8081
+# ✓ Expo Go at exp://192.168.x.x:8081
+```
+
+**Limitation**: Only works on same WiFi network as Replit machine
+
+---
+
+### Fix 3: Use LAN Instead
+
+```bash
+cd rn
+
+# Start with LAN mode
+npx expo start --lan
+
+# Output should show:
+# ✓ LAN mode at ws://192.168.x.x:8081
+```
+
+**Works on**: Same local network (WiFi)
+
+---
+
+### Fix 4: Update Expo CLI
+
+Old version might have ngrok issues:
+
+```bash
+cd rn
+
+# Update Expo
+npm install -g expo-cli@latest
+
+# Or with npx (doesn't require global install)
+npx expo@latest start --clear
+```
+
+---
+
+### Fix 5: Clear Expo Tunnel Cache
+
+```bash
+cd rn
+
+# Clear all Expo caches
+rm -rf ~/.expo
+rm -rf ~/.metro-cache
+npm cache clean --force
+
+# Restart
+npx expo start --clear
+```
+
+---
+
+### Fix 6: Force Ngrok Reconnect
+
+```bash
+cd rn
+
+# Kill and restart with verbose logging
+pkill -f "expo"
+sleep 3
+npx expo start --clear --verbose
+
+# Watch console for error details
+```
+
+---
+
+## PERMANENT SOLUTION: Use Replit URL Instead
+
+**Better approach for users testing remotely:**
+
+Instead of Expo tunnel, deploy to Replit and use the Replit URL:
+
+```bash
+npm run dev
+# Shows: Backend running at https://your-replit-url.repl.co/api
+```
+
+Users can test:
+1. **Web frontend**: https://your-replit-url.repl.co
+2. **React Native**: Configure to use Replit backend URL
+3. **No tunnel needed** - Works globally
+
+---
+
+## SOLUTION MATRIX
+
+| Situation | Fix | Command |
+|-----------|-----|---------|
+| Testing locally only | Localhost | `npx expo start --localhost` |
+| Same WiFi network | LAN | `npx expo start --lan` |
+| Ngrok is down | Wait | Check https://status.ngrok.com/ |
+| Users remote testing | Replit URL | Update `VITE_API_URL` to Replit |
+| Tunnel keeps failing | Update CLI | `npm install -g expo-cli@latest` |
+
+---
+
+## RECOMMENDED: Use Replit URL for Remote Testing
+
+**Instead of Expo tunnel, use Replit's built-in URL:**
+
+### Step 1: Ensure Backend Uses Replit URL
+
+In `rn/src/utils/apiClient.ts`, the `resolveApiBase()` should detect:
+
+```typescript
+// When deployed, reads from Replit URL instead of tunnel
+if (process.env.EXPO_PUBLIC_API_URL) {
+  return process.env.EXPO_PUBLIC_API_URL; // Use Replit URL
+}
+```
+
+### Step 2: Set Environment Variable
+
+In Replit Secrets:
+```
+EXPO_PUBLIC_API_URL = https://your-replit-url.repl.co/api
+```
+
+### Step 3: Users Test via Replit
+
+1. Go to https://your-replit-url.repl.co (web frontend)
+2. Or scan Expo tunnel QR, which will use Replit backend
+
+---
+
+## STEP-BY-STEP FOR USERS EXPERIENCING ERROR
+
+**Tell test users to:**
+
+1. **Check Ngrok status**: https://status.ngrok.com/
+   - If down, wait 10 minutes and try again
+
+2. **Try on same WiFi**:
+   ```bash
+   # Your end:
+   npx expo start --lan
+   
+   # Their end:
+   Scan QR code in Expo Go
+   ```
+
+3. **Use Replit URL instead**:
+   ```
+   Go to: https://your-replit-url.repl.co
+   Or configure app to use Replit backend
+   ```
+
+4. **If still failing**:
+   ```bash
+   pkill -f expo
+   rm -rf ~/.expo
+   npx expo start --clear
+   ```
+
+---
+
+## LONG-TERM FIX
+
+**For HackDavis competition**, users shouldn't rely on Expo tunnel:
+
+### Deploy to Replit Permanently
+
+1. **Backend**: Already running on Replit
+2. **Frontend**: Build and deploy web version
+3. **Mobile**: Configure to use Replit backend URL
+
+```bash
+# Users can test:
+- Web: https://your-replit-url.repl.co
+- Mobile: Expo Go connected to Replit backend
+```
+
+**No tunnel = No ngrok errors ✅**
+
+---
+
+## WHAT TO TELL TEST USERS
+
+```
+⚠️ If you see ERR_NGROK_3200:
+
+1. Check https://status.ngrok.com/ - if red, wait 10 min
+2. Try: npx expo start --lan (must be same WiFi)
+3. Use web version: https://your-replit-url.repl.co
+4. As last resort: Restart everything
+   pkill -f expo && npx expo start --clear
+```
+
+---
+
+## ACTUAL ROOT CAUSE
+
+**Why Ngrok keeps failing:**
+
+Ngrok has usage limits and reliability issues. For production/competition:
+
+✅ **Don't use Expo tunnel for remote testing**  
+✅ **Deploy backend to Replit (already done)**  
+✅ **Deploy frontend to web or Replit**  
+✅ **Users test via deployed URL**  
+
+---
+
+## RECOMMEND TO USERS
+
+For HackDavis testing:
+
+```
+📱 Mobile Testing:
+  1. Install Expo Go
+  2. Go to: https://your-replit-url.repl.co
+  3. Configure app to use Replit backend
+  ✅ Works globally, no tunnel needed
+
+🌐 Web Testing:
+  1. Go to: https://your-replit-url.repl.co
+  ✅ Works in any browser
+
+✅ Both use same backend, no Ngrok dependency
+```
+
+---
+
+## QUICK COMMAND FOR YOUR END
+
+If you need to start Expo and ngrok fails:
+
+```bash
+cd rn
+
+# Try in this order:
+npx expo start --clear  # Try tunnel first
+# If fails...
+npx expo start --lan    # Try LAN
+# If fails...
+npx expo start --localhost  # Local only
+```
+
+---
+
+**Bottom line: Don't rely on Ngrok. Use Replit URL for remote testing.** ✅
+
+What error are users seeing exactly?
