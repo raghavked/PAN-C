@@ -40,6 +40,7 @@ module.exports = {
       bundler: 'metro',
     },
     newArchEnabled: false,
+    owner: process.env.EXPO_OWNER || undefined,
     extra: {
       eas: {
         projectId: process.env.EXPO_PROJECT_ID || '',

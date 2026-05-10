@@ -35,15 +35,20 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       Constants.expoConfig?.extra?.expoProjectId ||
       (Constants as any).easConfig?.projectId;
 
-    if (!projectId) {
-      console.warn(
-        '[Push] No Expo projectId found — Expo Push Token unavailable.\n' +
-        '       Add EXPO_PROJECT_ID to Replit Secrets (get it from expo.dev).'
-      );
-      return null;
+    // Build token options: use projectId if available (EAS), otherwise fall back
+    // to experienceId (@owner/slug) which works in Expo Go without EAS setup
+    let tokenOpts: Record<string, string>;
+    if (projectId) {
+      tokenOpts = { projectId };
+    } else {
+      const slug = Constants.expoConfig?.slug ?? 'pan-c';
+      const owner = Constants.expoConfig?.owner ?? 'anonymous';
+      const experienceId = `@${owner}/${slug}`;
+      console.warn(`[Push] No projectId — falling back to experienceId: ${experienceId}`);
+      tokenOpts = { experienceId };
     }
 
-    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    const token = await Notifications.getExpoPushTokenAsync(tokenOpts as any);
     console.log('[Push] Expo Push Token obtained:', token.data.substring(0, 50) + '...');
     return token.data;
   } catch (error) {

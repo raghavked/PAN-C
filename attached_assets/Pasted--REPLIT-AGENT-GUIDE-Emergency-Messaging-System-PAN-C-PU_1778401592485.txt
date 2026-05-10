@@ -1,0 +1,928 @@
+# 🤖 REPLIT AGENT GUIDE - Emergency Messaging System (PAN!C)
+
+**PURPOSE**: Complete implementation of Expo Push Notifications for emergency messaging  
+**INPUT**: Code repository (user will provide as secret)  
+**OUTPUT**: Fully functional emergency alert system with push notifications  
+**TIME ESTIMATE**: 30-45 minutes of agentic coding
+
+---
+
+## AGENT INSTRUCTIONS
+
+When the user provides code as a secret, follow this guide step-by-step. Reference the provided code whenever needed using the secret. Do NOT hardcode values - always read from environment variables or the user's codebase.
+
+---
+
+## PHASE 1: ANALYSIS & SETUP (5 minutes)
+
+### Task 1.1: Analyze Provided Code
+
+**Action**: Examine the user's provided code to understand:
+- Current project structure (frontend, backend, React Native)
+- Existing API endpoints
+- Database schema (MongoDB collections)
+- Authentication system (JWT tokens)
+- Current state of push notifications (if any)
+
+**Commands**:
+```bash
+# First, understand the structure
+cd /home/claude
+ls -la PAN-C/
+
+# Check which directories exist
+ls rn/src/ 2>/dev/null || echo "RN app not found"
+ls server/src/routes/ 2>/dev/null || echo "Backend routes not found"
+ls src/ 2>/dev/null || echo "Frontend not found"
+```
+
+**What to Look For**:
+- ✅ Is `rn/app.json` or `rn/app.config.js` present?
+- ✅ Does `AuthContext.tsx` exist in RN app?
+- ✅ Does `TimerScreen.tsx` exist?
+- ✅ Backend route files for auth, contacts, panic
+- ✅ Current MongoDB schema
+
+**Report to User**: "I found [structure]. Here's what I need to complete the system."
+
+---
+
+### Task 1.2: Verify Environment & Secrets
+
+**Action**: Check what secrets are needed and what exists
+
+**Commands**:
+```bash
+# Check if EXPO_PROJECT_ID is needed
+echo "Checking for EXPO configuration..."
+grep -r "EXPO_PROJECT_ID" . 2>/dev/null | head -5
+
+# Check MongoDB connection
+echo "MongoDB URI pattern:"
+grep -r "MONGODB_URI" . 2>/dev/null | head -3
+
+# Check if app.config.js exists
+test -f rn/app.config.js && echo "✅ app.config.js found" || echo "❌ app.config.js missing"
+test -f rn/app.json && echo "✅ app.json found" || echo "❌ app.json missing"
+```
+
+**Report**: "Required secrets: EXPO_PROJECT_ID, EXPO_OWNER, MONGODB_URI, JWT_SECRETS, etc."
+
+---
+
+## PHASE 2: CONFIGURATION FILES (10 minutes)
+
+### Task 2.1: Create/Update app.config.js
+
+**Reference**: Ask to see current `rn/app.json` or `rn/app.config.js`
+
+**Action**: If `app.json` exists, convert it to `app.config.js`:
+
+```bash
+cd rn
+
+# Backup if needed
+test -f app.json && mv app.json app.json.backup
+
+# Create dynamic config file
+cat > app.config.js << 'EOF'
+export default {
+  expo: {
+    name: "PAN!C",
+    slug: "panic-app",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    scheme: "panic",
+    
+    // Dynamic configuration from environment
+    owner: process.env.EXPO_OWNER || "default",
+    extra: {
+      projectId: process.env.EXPO_PROJECT_ID || "PASTE_YOUR_PROJECT_ID_HERE",
+    },
+
+    splash: {
+      image: "./assets/splash.png",
+      resizeMode: "contain",
+      backgroundColor: "#131313",
+    },
+
+    assetBundlePatterns: ["**/*"],
+
+    ios: {
+      supportsTabletMode: true,
+      bundleIdentifier: "com.panic.app",
+    },
+
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#131313",
+      },
+      package: "com.panic.app",
+    },
+
+    web: {
+      favicon: "./assets/favicon.png",
+    },
+
+    plugins: [
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/notification-icon.png",
+          color: "#E24B4A",
+          defaultChannel: "default",
+          modes: ["production"],
+        },
+      ],
+    ],
+  },
+};
+EOF
+
+echo "✅ Created app.config.js"
+```
+
+**Verification**:
+```bash
+node -c app.config.js && echo "✅ Config syntax valid" || echo "❌ Syntax error"
+```
+
+---
+
+### Task 2.2: Create rn/.env
+
+**Action**: Create environment file for React Native
+
+```bash
+cd rn
+
+cat > .env << 'EOF'
+EXPO_PROJECT_ID=YOUR_EXPO_PROJECT_ID_HERE
+EXPO_OWNER=YOUR_EXPO_USERNAME_HERE
+EXPO_PUBLIC_API_URL=http://localhost:3001/api
+EOF
+
+echo "✅ Created .env file"
+echo "⚠️  User must fill in EXPO_PROJECT_ID and EXPO_OWNER"
+```
+
+---
+
+### Task 2.3: Initialize EAS (Expo Application Services)
+
+**Action**: Set up Expo build system
+
+```bash
+cd rn
+
+# Check if eas.json exists
+if [ ! -f eas.json ]; then
+  echo "Initializing EAS..."
+  npx eas-cli@latest init --non-interactive 2>/dev/null || echo "⚠️  Manual EAS init may be needed"
+  
+  # Create basic eas.json if init failed
+  cat > eas.json << 'EOF'
+{
+  "cli": {
+    "version": ">= 5.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {}
+  },
+  "submit": {
+    "production": {}
+  }
+}
+EOF
+  echo "✅ Created eas.json"
+else
+  echo "✅ eas.json already exists"
+fi
+```
+
+---
+
+## PHASE 3: BACKEND UPDATES (12 minutes)
+
+### Task 3.1: Add Push Token Storage Endpoint
+
+**Reference**: Ask user to show `server/src/routes/user.ts` or equivalent
+
+**Action**: Add endpoint to store Expo push tokens
+
+```typescript
+// File: server/src/routes/user.ts
+// Add this endpoint to the router:
+
+// POST /api/user/push-token
+// Register device's Expo push token
+router.post('/push-token', async (req: any, res: any) => {
+  try {
+    const userEmail = req.user?.email;
+    if (!userEmail) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { pushToken } = req.body;
+
+    if (!pushToken) {
+      return res.status(400).json({ error: 'Push token required' });
+    }
+
+    // Validate Expo token format
+    if (!pushToken.startsWith('ExponentPushToken[')) {
+      return res.status(400).json({ error: 'Invalid push token format' });
+    }
+
+    // Store in MongoDB
+    const result = await db.collection('users').updateOne(
+      { email: userEmail },
+      {
+        $set: {
+          pushToken: pushToken,
+          pushTokenUpdatedAt: new Date(),
+          pushTokenType: 'ExponentPushToken',
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`✅ Push token registered for ${userEmail}`);
+
+    res.json({
+      success: true,
+      message: 'Push token registered',
+      tokenRegistered: pushToken.substring(0, 50) + '...',
+    });
+  } catch (error: any) {
+    console.error('Push token error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+```
+
+**Instructions**:
+1. Ask to see `server/src/routes/user.ts`
+2. Add the above endpoint
+3. Verify it compiles: `npm run build` in server directory
+
+---
+
+### Task 3.2: Update Panic Endpoint for Expo Push
+
+**Reference**: Ask user to show `server/src/routes/panic.ts`
+
+**Action**: Install Expo SDK and update panic trigger
+
+```bash
+cd server
+
+# Install expo-server-sdk
+npm install expo-server-sdk
+npm list expo-server-sdk
+```
+
+Then update panic endpoint:
+
+```typescript
+// File: server/src/routes/panic.ts
+import * as Expo from 'expo-server-sdk';
+
+// Initialize Expo
+const expo = new Expo.Expo({
+  accessToken: process.env.EXPO_ACCESS_TOKEN,
+});
+
+// Update the triggerPanic endpoint:
+router.post('/panic/trigger', async (req: any, res: any) => {
+  try {
+    const userEmail = req.user?.email;
+    if (!userEmail) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { latitude, longitude, address } = req.body;
+
+    if (!latitude || !longitude || !address) {
+      return res.status(400).json({
+        error: 'Missing location data',
+        required: ['latitude', 'longitude', 'address'],
+      });
+    }
+
+    // Get user and contacts
+    const user = await db.collection('users').findOne({ email: userEmail });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const contacts = await db.collection('contacts')
+      .find({ userEmail: userEmail })
+      .toArray();
+
+    console.log(`[PANIC] ${userEmail} triggered panic`);
+    console.log(`[PANIC] Found ${contacts.length} contacts`);
+
+    // Get push tokens
+    const pushTokens = contacts
+      .filter((c: any) => c.pushToken && c.pushToken.startsWith('ExponentPushToken['))
+      .map((c: any) => c.pushToken);
+
+    console.log(`[PANIC] ${pushTokens.length} contacts have Expo push tokens`);
+
+    // Create incident record
+    const incident = {
+      userEmail: userEmail,
+      userName: user.fullName,
+      userPhone: user.phone,
+      triggeredAt: new Date(),
+      location: {
+        latitude,
+        longitude,
+        address,
+      },
+      contactsNotified: contacts.map((c: any) => ({
+        contactId: c._id,
+        contactName: c.name,
+        pushToken: c.pushToken || null,
+        notifiedAt: new Date(),
+        status: c.pushToken ? 'pending' : 'no_app',
+      })),
+      status: 'active',
+      sentCount: 0,
+      failedCount: 0,
+    };
+
+    const incidentResult = await db.collection('incidents').insertOne(incident);
+    const incidentId = incidentResult.insertedId.toString();
+
+    // Send Expo Push Notifications
+    let sentCount = 0;
+    let failedCount = 0;
+    const messages: Expo.ExpoPushMessage[] = [];
+
+    for (const token of pushTokens) {
+      if (!Expo.Expo.isExpoPushToken(token)) {
+        console.error(`[PANIC] Invalid token: ${token}`);
+        failedCount++;
+        continue;
+      }
+
+      messages.push({
+        to: token,
+        sound: 'default',
+        title: `🚨 ${user.fullName} NEEDS HELP!`,
+        body: `Location: ${address}`,
+        data: {
+          incidentId: incidentId,
+          userEmail: userEmail,
+          userName: user.fullName,
+          address: address,
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+        },
+        priority: 'high',
+        badge: 1,
+      });
+    }
+
+    // Send via Expo
+    if (messages.length > 0) {
+      const chunks = expo.chunkPushNotifications(messages);
+      for (const chunk of chunks) {
+        try {
+          const tickets = await expo.sendPushNotificationsAsync(chunk);
+          for (const ticket of tickets) {
+            if (ticket.status === 'ok') {
+              sentCount++;
+              console.log(`[EXPO] ✅ Message sent: ${ticket.id}`);
+            } else {
+              failedCount++;
+              console.log(`[EXPO] ❌ Failed: ${ticket.message}`);
+            }
+          }
+        } catch (error) {
+          console.error('[EXPO] Error:', error);
+          failedCount += chunk.length;
+        }
+      }
+    }
+
+    // Update incident
+    await db.collection('incidents').updateOne(
+      { _id: new ObjectId(incidentId) },
+      {
+        $set: {
+          status: sentCount > 0 ? 'notified' : 'pending',
+          sentAt: new Date(),
+          sentCount: sentCount,
+          failedCount: failedCount,
+        },
+      }
+    );
+
+    console.log(`[PANIC] ✅ Sent ${sentCount}, Failed ${failedCount}`);
+
+    res.json({
+      success: true,
+      incidentId: incidentId,
+      contactsNotified: sentCount,
+      contactsFailed: failedCount,
+      totalContacts: contacts.length,
+      status: 'active',
+      message: `Alert sent to ${sentCount} contact${sentCount !== 1 ? 's' : ''}`,
+    });
+  } catch (error: any) {
+    console.error('[PANIC] Error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+```
+
+**Verification**:
+```bash
+cd server
+npm run build
+# Should compile without errors
+```
+
+---
+
+## PHASE 4: REACT NATIVE FRONTEND (10 minutes)
+
+### Task 4.1: Create Push Notifications Service
+
+**Action**: Create new file `rn/src/services/pushNotifications.ts`
+
+```typescript
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (!Device.isDevice) {
+    console.log('Must use physical device for push notifications');
+    return null;
+  }
+
+  try {
+    // Request permissions
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      console.log('Push permissions not granted');
+      return null;
+    }
+
+    // Get Expo push token
+    const projectId = process.env.EXPO_PROJECT_ID;
+    if (!projectId) {
+      throw new Error('EXPO_PROJECT_ID not set in environment');
+    }
+
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    console.log('✅ Expo Push Token:', token.data);
+    return token.data;
+  } catch (error) {
+    console.error('Failed to get push token:', error);
+    return null;
+  }
+}
+
+export function setupNotificationListeners() {
+  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    console.log('🔔 Notification tapped:', response.notification);
+    const { incidentId } = response.notification.request.content.data as any;
+    if (incidentId) {
+      // Navigate to incident details if needed
+      console.log('Opening incident:', incidentId);
+    }
+  });
+
+  return subscription;
+}
+```
+
+**Verification**:
+```bash
+cd rn
+npx tsc --noEmit src/services/pushNotifications.ts
+# Should compile without errors
+```
+
+---
+
+### Task 4.2: Update AuthContext to Register Push Tokens
+
+**Reference**: Ask user to show `rn/src/context/AuthContext.tsx`
+
+**Action**: Update AuthContext to call push token registration
+
+```typescript
+// In AuthContext.tsx, add this to imports:
+import { registerForPushNotificationsAsync } from '../services/pushNotifications';
+
+// In the component, add this effect:
+useEffect(() => {
+  // Register push token whenever auth changes
+  if (user) {
+    registerPushTokenWithBackend();
+  }
+}, [user]);
+
+// Add this function:
+const registerPushTokenWithBackend = async () => {
+  try {
+    const token = await registerForPushNotificationsAsync();
+    
+    if (token) {
+      console.log('✅ Push token obtained');
+      
+      // Send to backend
+      const authToken = await AsyncStorage.getItem('authToken');
+      const response = await fetch('/api/user/push-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ pushToken: token }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Push token registered with backend');
+      } else {
+        console.error('Failed to register push token');
+      }
+    }
+  } catch (error) {
+    console.error('Push token registration error:', error);
+    // Don't block auth if push registration fails
+  }
+};
+```
+
+---
+
+### Task 4.3: Update TimerScreen for Auto-Trigger
+
+**Reference**: Ask user to show `rn/src/screens/TimerScreen.tsx`
+
+**Action**: Add auto-trigger logic
+
+```typescript
+// In TimerScreen.tsx, add this effect:
+useEffect(() => {
+  if (localSeconds === 0 && localSeconds !== prevSeconds) {
+    console.log('⏰ Timer hit zero - auto-triggering panic');
+    triggerPanic();
+  }
+  setPrevSeconds(localSeconds);
+}, [localSeconds]);
+
+// Add to state:
+const [prevSeconds, setPrevSeconds] = useState(0);
+
+// The triggerPanic function should:
+const triggerPanic = async () => {
+  try {
+    // Get location
+    const location = await getCurrentLocation(); // Your location function
+    
+    // Send panic request
+    const token = await AsyncStorage.getItem('authToken');
+    const response = await fetch('/api/panic/trigger', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        address: location.address,
+      }),
+    });
+
+    const data = await response.json();
+    console.log('✅ Panic triggered:', data.incidentId);
+    
+    // Show confirmation
+    Alert.alert(
+      '🚨 PANIC TRIGGERED',
+      `Alert sent to ${data.contactsNotified} contacts`
+    );
+  } catch (error) {
+    console.error('Panic error:', error);
+    Alert.alert('Error', 'Failed to trigger panic');
+  }
+};
+```
+
+---
+
+## PHASE 5: DATABASE SCHEMA UPDATES (3 minutes)
+
+### Task 5.1: Add Push Token Fields to MongoDB
+
+**Action**: Update MongoDB collections schema
+
+```javascript
+// users collection - add these fields:
+db.collection('users').updateMany(
+  { pushToken: { $exists: false } },
+  {
+    $set: {
+      pushToken: null,
+      pushTokenUpdatedAt: null,
+      pushTokenType: null,
+    }
+  }
+);
+
+// contacts collection - add push token field:
+db.collection('contacts').updateMany(
+  { pushToken: { $exists: false } },
+  {
+    $set: {
+      pushToken: null,
+    }
+  }
+);
+
+console.log('✅ Schema updated');
+```
+
+Or verify manually in MongoDB Atlas:
+- Go to Collections → panic_c → users
+- Existing documents should add `pushToken` field when updated
+
+---
+
+## PHASE 6: ENVIRONMENT SETUP (5 minutes)
+
+### Task 6.1: Verify All Secrets
+
+**Action**: Check and list required Replit Secrets
+
+Required Secrets:
+```
+EXPO_PROJECT_ID        = [User provides from expo.dev]
+EXPO_OWNER             = [User's Expo username]
+MONGODB_URI            = [User's MongoDB connection string]
+MONGODB_DATABASE       = pan_c
+JWT_SECRET             = [User's JWT secret]
+JWT_REFRESH_SECRET     = [User's JWT refresh secret]
+ENCRYPTION_KEY         = [User's encryption key]
+```
+
+**Command to verify in Replit**:
+```bash
+echo "Checking secrets..."
+env | grep -E "(EXPO_|MONGODB_|JWT_|ENCRYPTION_)" | head -20
+```
+
+---
+
+### Task 6.2: Restart Services
+
+**Action**: Restart all services with new configuration
+
+```bash
+# Kill existing processes
+pkill -f "node"
+pkill -f "npm"
+
+# Wait
+sleep 3
+
+# Install dependencies if needed
+npm run install:all
+
+# Start fresh
+npm run dev
+```
+
+Expected output:
+```
+✓ Frontend running at http://localhost:5173
+✓ Backend running at http://localhost:3001
+✓ MongoDB connected
+✓ All systems initialized
+```
+
+---
+
+## PHASE 7: TESTING (5 minutes)
+
+### Task 7.1: Test Push Token Registration
+
+**Action**: Verify push tokens are being stored
+
+```bash
+# Start Expo dev server
+cd rn
+npx expo start
+
+# Instructions for user:
+echo "
+1. Scan the QR code with your phone's camera or Expo Go app
+2. App should load
+3. Login with test account
+4. Check browser/terminal for: ✅ Expo Push Token obtained
+5. Check console for: ✅ Push token registered with backend
+"
+```
+
+**MongoDB Verification**:
+```javascript
+// In MongoDB Atlas, check:
+db.collection('users').findOne(
+  { email: 'test@email.com' },
+  { pushToken: 1 }
+);
+
+// Should show:
+// {
+//   pushToken: "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]"
+// }
+```
+
+---
+
+### Task 7.2: Test Complete Panic Flow
+
+**Action**: Test end-to-end panic and notification
+
+```
+Device 1 (Raghav):
+- Go to Timer screen
+- Set timer to 1 minute (for testing)
+- Wait for zero
+- Should see: ⏰ Timer hit zero - triggering panic
+
+Device 2 (Ansh):
+- Should receive 🔔 push notification
+- "🚨 Raghav NEEDS HELP! Location: ..."
+
+Backend Logs:
+- Should show: [PANIC] Triggered
+- Should show: [EXPO] ✅ Message sent
+- Should show: [PANIC] ✅ Sent 1, Failed 0
+```
+
+---
+
+## PHASE 8: COMPLETION & DEPLOYMENT (5 minutes)
+
+### Task 8.1: Commit Changes
+
+```bash
+# Stage all changes
+git add -A
+
+# Commit with message
+git commit -m "feat: Complete Expo Push Notifications - auto-trigger on timer + panic alerts"
+
+# Push to GitHub
+git push origin main
+
+echo "✅ Changes pushed to GitHub"
+```
+
+---
+
+### Task 8.2: Final Verification Checklist
+
+```
+Code Implementation:
+  ✅ app.config.js created with dynamic config
+  ✅ rn/.env created with EXPO_PROJECT_ID
+  ✅ eas.json initialized
+  ✅ server/src/routes/user.ts has push-token endpoint
+  ✅ server/src/routes/panic.ts uses expo-server-sdk
+  ✅ rn/src/services/pushNotifications.ts created
+  ✅ AuthContext.tsx calls registerPushTokenWithBackend()
+  ✅ TimerScreen.tsx auto-triggers panic at zero
+
+Configuration:
+  ✅ EXPO_PROJECT_ID set in Replit Secrets
+  ✅ EXPO_OWNER set in Replit Secrets
+  ✅ All other secrets verified
+  ✅ MongoDB schema updated
+
+Testing:
+  ✅ Expo dev server starts
+  ✅ Push token obtained on login
+  ✅ Push token stored in MongoDB
+  ✅ Timer auto-triggers panic
+  ✅ Push notification received on other device
+  ✅ Incident logged in MongoDB
+
+Deployment:
+  ✅ Changes committed to GitHub
+  ✅ Replit shows "Ready" status
+  ✅ Both devices can reload and test
+
+System Status: 🟢 LIVE & OPERATIONAL
+```
+
+---
+
+## TROUBLESHOOTING GUIDE FOR AGENT
+
+If tests fail, investigate in this order:
+
+1. **"No push token obtained"**
+   - Check: `EXPO_PROJECT_ID` in Replit Secrets
+   - Check: `rn/.env` has EXPO_PROJECT_ID
+   - Check: Device has notifications enabled
+   - Check: Using physical device (not simulator)
+
+2. **"Push token not in MongoDB"**
+   - Check: Backend is running (`npm run dev`)
+   - Check: `MONGODB_URI` is correct
+   - Check: Network connection is working
+   - Check: `/api/user/push-token` endpoint responds
+
+3. **"Panic doesn't trigger at zero"**
+   - Check: `TimerScreen.tsx` has useEffect watching `localSeconds`
+   - Check: `triggerPanic()` function exists
+   - Check: No console errors
+
+4. **"No notification on other device"**
+   - Check: Receiver has valid push token
+   - Check: `EXPO_ACCESS_TOKEN` is set (if needed)
+   - Check: Both devices on same network or accessible
+   - Check: Notification permissions enabled
+
+5. **"Compilation errors"**
+   - Run: `npm run build` in server directory
+   - Run: `npx tsc --noEmit` in rn directory
+   - Check: All imports are correct
+   - Check: No typos in endpoint names
+
+---
+
+## SUCCESS CRITERIA
+
+System is complete when:
+
+```
+✅ User can signup/login in Expo Go
+✅ Push token auto-registers on login
+✅ Token stored in MongoDB (ExponentPushToken[...])
+✅ Timer can be set and counts down
+✅ At zero, panic auto-triggers
+✅ Second device receives 🔔 notification
+✅ Notification shows correct info
+✅ Incident logged in MongoDB with delivery status
+✅ No console errors or warnings
+✅ Changes committed to GitHub
+🚀 Emergency messaging system is LIVE
+```
+
+---
+
+## FINAL MESSAGE TO USER
+
+"Your emergency messaging system is now complete! 
+
+✅ Users on Expo Go will automatically register push tokens on login
+✅ The timer will auto-trigger panic at zero
+✅ Contacts will receive instant push notifications
+✅ All incidents are logged for compliance
+
+Both test devices can now:
+1. Reload Expo Go
+2. Login
+3. One device sets a timer → other device gets notification
+4. System is production-ready 🚨"
+
+---
+
+**Agent: You now have complete instructions. Ask user for their code and begin implementation.** 🤖
