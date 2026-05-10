@@ -19,7 +19,7 @@
     "expo-av": "~15.0.2",
     "expo-clipboard": "~8.0.8",
     "expo-constants": "~17.0.8",
-    "expo-device": "^55.0.16",
+    "expo-device": "~8.0.10",
     "expo-document-picker": "~13.0.3",
     "expo-file-system": "~18.0.12",
     "expo-location": "~18.0.10",
