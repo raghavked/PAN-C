@@ -69,7 +69,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd rn && npx expo start --tunnel --port 5000"
+args = "cd rn && npx expo install --silent 2>/dev/null; npx expo start --tunnel --port 5000"
 waitForPort = 5000
 
 [[workflows.workflow]]
