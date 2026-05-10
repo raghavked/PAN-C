@@ -3,28 +3,22 @@ import Constants from 'expo-constants';
 import { storage } from './storage';
 
 /**
- * API base URL resolution — handles all three environments:
+ * API base URL resolution — three environments:
  *
- * 1. EXPO_PUBLIC_API_URL set (e.g. production remote server):
- *    Uses that URL directly. Example: https://myserver.com → calls https://myserver.com/api/...
+ * 1. Native device via Expo Go tunnel:
+ *    Expo sets Constants.expoConfig.hostUri to the Metro tunnel hostname,
+ *    e.g. "pm0-89w-anonymous-8081.exp.direct"
+ *    We use the SAME host — Metro's enhanceMiddleware proxies /api/* → localhost:3001
+ *    So: https://pm0-89w-anonymous-8081.exp.direct/api/auth/login → backend
  *
- * 2. Native device (Expo Go via tunnel) — no EXPO_PUBLIC_API_URL set:
- *    Expo sets Constants.expoConfig.hostUri to the tunnel hostname, e.g.
- *    "pm0-89w-anonymous-8081.exp.direct". We build:
- *    https://pm0-89w-anonymous-8081.exp.direct/api/...
- *    The Metro server at that URL has the /api proxy middleware → backend:3001.
+ * 2. Native device on LAN (expo start --lan):
+ *    hostUri is "192.168.x.x:8081" — we use the same IP, same port
+ *    Metro proxy handles /api forwarding
  *
- * 3. Web (Vite dev server) — no EXPO_PUBLIC_API_URL set:
- *    Uses relative /api — Vite proxies it to localhost:3001.
+ * 3. Web (Vite dev server):
+ *    Uses relative /api — Vite proxies to localhost:3001
  */
 function resolveApiBase(): string {
-  // Explicit override always wins
-  const override = process.env?.EXPO_PUBLIC_API_URL;
-  if (override) {
-    return override.replace(/\/+$/, '');
-  }
-
-  // On native, derive from the Metro tunnel hostUri
   if (Platform.OS !== 'web') {
     const hostUri: string | undefined =
       (Constants.expoConfig as { hostUri?: string } | null)?.hostUri ??
@@ -33,21 +27,14 @@ function resolveApiBase(): string {
       (Constants.manifest as { hostUri?: string } | null)?.hostUri;
 
     if (hostUri) {
-      // hostUri is the Metro bundler host, e.g. "pm0-89w-anonymous-8081.exp.direct"
-      // or "192.168.1.5:8081" for LAN.
-      // For exp.direct tunnels: ngrok assigns a separate tunnel per port.
-      // The backend runs on port 3001 — its tunnel hostname is derived by replacing
-      // the Metro port suffix (8081) with 3001 in the subdomain.
-      // e.g. pm0-89w-anonymous-8081.exp.direct → pm0-89w-anonymous-3001.exp.direct
+      // Strip any path component, keep only host[:port]
       const host = hostUri.split('/')[0];
+      // exp.direct tunnel — use https
       if (host.includes('exp.direct')) {
-        // Replace the port number in the subdomain
-        const backendHost = host.replace('-8081.exp.direct', '-3001.exp.direct');
-        return `https://${backendHost}`;
+        return `https://${host}`;
       }
-      // LAN: use the IP with port 3001 directly
-      const ip = host.split(':')[0];
-      return `http://${ip}:3001`;
+      // LAN — use http
+      return `http://${host}`;
     }
   }
 
@@ -70,8 +57,8 @@ export async function apiRequest<T = unknown>(
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   // Build full URL:
-  // - If API_BASE is "/api" (web), path is appended directly: /api/auth/login
-  // - If API_BASE is a full URL (native/prod), append /api + path: https://host/api/auth/login
+  // - If API_BASE is "/api" (web Vite), path is appended: /api/auth/login
+  // - If API_BASE is a full URL (native), append /api + path: https://host/api/auth/login
   const url = API_BASE.startsWith('/')
     ? `${API_BASE}${path}`
     : `${API_BASE}/api${path}`;
