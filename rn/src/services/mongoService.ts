@@ -1,24 +1,11 @@
 /**
- * mongoService.ts (React Native / Expo version)
- * MongoDB Atlas — stores incidents, contacts, and documents.
+ * mongoService.ts
+ * Calls your backend REST API which uses the MongoDB Node.js driver server-side.
+ * MONGODB_URI and MONGODB_DATABASE are server-side only — never in the app bundle.
  *
- * ⚠️  The Atlas Data API was permanently shut down on September 30, 2025.
- *
- * Current architecture (2025/2026):
- *   - The mongodb+srv:// connection string is used SERVER-SIDE ONLY
- *     in your Node.js/Express backend (never in a mobile app bundle).
- *   - This service calls your backend REST API, which uses the
- *     official MongoDB Node.js driver (v6+) to talk to Atlas.
- *
- * Required env vars:
- *   Backend server (.env — NOT in the app bundle):
- *     MONGODB_URI        — mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/
- *                          Get from: cloud.mongodb.com → cluster → Connect
- *                          → Drivers → Node.js v5.5 or later
- *     MONGODB_DATABASE   — e.g. "pan_c"
- *
- *   Mobile app (.env with EXPO_PUBLIC_ prefix):
- *     EXPO_PUBLIC_API_URL — URL of your backend, e.g. https://pan-c-api.railway.app/api
+ * Required env var (mobile app):
+ *   EXPO_PUBLIC_API_URL — URL of your backend, e.g. https://pan-c-api.railway.app/api
+ *   (Falls back to localhost:3000 for local development)
  */
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
@@ -28,59 +15,40 @@ interface MongoDocument {
 }
 
 async function apiRequest(path: string, method: string, body?: MongoDocument) {
-  if (!API_URL) {
-    console.warn('[mongoService] Missing EXPO_PUBLIC_API_URL — running in stub mode');
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!res.ok) throw new Error(`API ${method} ${path} failed: ${res.status}`);
+    return res.json();
+  } catch (e) {
+    console.warn(`[mongoService] ${method} ${path} failed (stub mode):`, e);
     return { document: null, documents: [], insertedId: 'stub-id' };
   }
-
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  if (!res.ok) throw new Error(`API ${method} ${path} failed: ${res.status}`);
-  return res.json();
 }
 
-// ── Incidents ──────────────────────────────────────────────────────────────
-
 export const mongoService = {
-  /** Insert a new panic incident record */
   async createIncident(incident: MongoDocument) {
     return apiRequest('/incidents', 'POST', incident);
   },
-
-  /** Update incident status (e.g. disarmed) */
   async updateIncident(incidentId: string, update: MongoDocument) {
     return apiRequest(`/incidents/${incidentId}`, 'PATCH', update);
   },
-
-  /** Fetch a single incident by ID */
   async getIncident(incidentId: string) {
     return apiRequest(`/incidents/${incidentId}`, 'GET');
   },
-
-  // ── Contacts ──────────────────────────────────────────────────────────────
-
-  /** Save or update an emergency contact */
   async upsertContact(userId: string, contact: MongoDocument) {
     return apiRequest(`/contacts/${userId}`, 'PUT', contact);
   },
-
-  /** Get all contacts for a user */
   async getContacts(userId: string) {
     return apiRequest(`/contacts/${userId}`, 'GET');
   },
-
-  // ── Documents ─────────────────────────────────────────────────────────────
-
-  /** Store document metadata (not the file itself — use S3/GridFS for files) */
   async saveDocument(userId: string, doc: MongoDocument) {
     return apiRequest('/documents', 'POST', { userId, ...doc, createdAt: new Date().toISOString() });
   },
-
-  /** Get all documents for a user */
   async getDocuments(userId: string) {
     return apiRequest(`/documents/${userId}`, 'GET');
   },

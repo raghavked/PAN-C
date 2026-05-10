@@ -1,16 +1,6 @@
-/**
- * elevenLabsService.ts (React Native / Expo version)
- * ElevenLabs Text-to-Speech — plays AI voice panic alert via expo-av
- *
- * Required env vars (add to .env or Expo EAS secrets):
- *   EXPO_PUBLIC_ELEVENLABS_API_KEY
- *   EXPO_PUBLIC_ELEVENLABS_VOICE_ID  (default: Rachel = 21m00Tcm4TlvDq8ikWAM)
- */
-
 import { Audio } from 'expo-av';
+import { config } from '../config';
 
-const API_KEY  = process.env.EXPO_PUBLIC_ELEVENLABS_API_KEY || '';
-const VOICE_ID = process.env.EXPO_PUBLIC_ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
 const BASE_URL = 'https://api.elevenlabs.io/v1';
 
 export const elevenLabsService = {
@@ -19,22 +9,21 @@ export const elevenLabsService = {
       ? 'AYUDA. MIGRA. Estoy en peligro. Por favor llama a mis contactos de emergencia ahora.'
       : 'HELP. ICE. I am in danger. Please call my emergency contacts now.';
 
-    if (!API_KEY) {
+    if (!config.elevenLabsApiKey) {
       console.warn('[elevenLabsService] No API key — skipping voice alert');
       return null;
     }
 
     try {
-      // expo-av v15 compatible AudioMode (removed shouldDuckAndroid, playThroughEarpieceAndroid)
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
       });
 
-      const res = await fetch(`${BASE_URL}/text-to-speech/${VOICE_ID}`, {
+      const res = await fetch(`${BASE_URL}/text-to-speech/${config.elevenLabsVoiceId}`, {
         method: 'POST',
         headers: {
-          'xi-api-key': API_KEY,
+          'xi-api-key': config.elevenLabsApiKey,
           'Content-Type': 'application/json',
           Accept: 'audio/mpeg',
         },
@@ -47,7 +36,6 @@ export const elevenLabsService = {
 
       if (!res.ok) throw new Error(`ElevenLabs API error: ${res.status}`);
 
-      // Convert response to base64 data URI for expo-av
       const arrayBuffer = await res.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       let binary = '';

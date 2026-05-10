@@ -1,34 +1,7 @@
-/**
- * twilioService.ts
- * Twilio REST API — sends real SMS alerts to emergency contacts
- * when the panic button is pressed, and all-clear messages when disarmed.
- *
- * ⚠️  SECURITY NOTE:
- * Twilio credentials in VITE_ variables are visible in the browser bundle.
- * This is Option A (get it working fast). For production, move to a backend
- * server (Option B) so credentials are never exposed client-side.
- * Mitigate risk by: using a restricted Twilio subaccount, enabling Geo
- * Permissions to limit to expected countries, and rotating keys regularly.
- *
- * Required secrets (Replit → Secrets):
- *   VITE_TWILIO_ACCOUNT_SID    — from console.twilio.com → Account Info
- *   VITE_TWILIO_AUTH_TOKEN     — from console.twilio.com → Account Info
- *   VITE_TWILIO_PHONE_NUMBER   — your Twilio "From" number, e.g. +15551234567
- *
- * Setup:
- *   1. Sign up at twilio.com → get a free phone number
- *   2. Copy Account SID and Auth Token from the Console dashboard
- *   3. Add all three values to Replit Secrets
- */
-
-const ACCOUNT_SID  = process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID || '';
-const AUTH_TOKEN   = process.env.EXPO_PUBLIC_TWILIO_AUTH_TOKEN || '';
-const FROM_NUMBER  = process.env.EXPO_PUBLIC_TWILIO_PHONE_NUMBER || '';
-
-const TWILIO_BASE  = `https://api.twilio.com/2010-04-01/Accounts/${ACCOUNT_SID}/Messages.json`;
+import { config } from '../config';
 
 function isConfigured(): boolean {
-  if (!ACCOUNT_SID || !AUTH_TOKEN || !FROM_NUMBER) {
+  if (!config.twilioAccountSid || !config.twilioAuthToken || !config.twilioPhoneNumber) {
     console.warn('[twilioService] Missing Twilio secrets — SMS will not be sent');
     return false;
   }
@@ -37,7 +10,7 @@ function isConfigured(): boolean {
 
 export interface SMSContact {
   name: string;
-  phone: string; // E.164 format: +15551234567
+  phone: string;
 }
 
 export interface SMSResult {
@@ -47,10 +20,6 @@ export interface SMSResult {
   error?: string;
 }
 
-/**
- * Send a single SMS via Twilio REST API.
- * Uses Basic Auth (AccountSID:AuthToken) as required by Twilio.
- */
 async function sendSMS(to: string, body: string): Promise<SMSResult> {
   if (!isConfigured()) {
     console.log(`[twilioService] STUB SMS to ${to}: ${body}`);
@@ -58,8 +27,9 @@ async function sendSMS(to: string, body: string): Promise<SMSResult> {
   }
 
   try {
-    const credentials = btoa(`${ACCOUNT_SID}:${AUTH_TOKEN}`);
-    const params = new URLSearchParams({ To: to, From: FROM_NUMBER, Body: body });
+    const TWILIO_BASE = `https://api.twilio.com/2010-04-01/Accounts/${config.twilioAccountSid}/Messages.json`;
+    const credentials = btoa(`${config.twilioAccountSid}:${config.twilioAuthToken}`);
+    const params = new URLSearchParams({ To: to, From: config.twilioPhoneNumber, Body: body });
 
     const res = await fetch(TWILIO_BASE, {
       method: 'POST',
@@ -87,10 +57,6 @@ async function sendSMS(to: string, body: string): Promise<SMSResult> {
 }
 
 export const twilioService = {
-  /**
-   * Send panic alert SMS to all emergency contacts in parallel.
-   * Returns results for each contact so failures can be surfaced in the UI.
-   */
   async sendPanicAlerts(payload: {
     contacts: SMSContact[];
     incidentId: string;
@@ -116,9 +82,6 @@ export const twilioService = {
     return results;
   },
 
-  /**
-   * Send all-clear SMS to all contacts when panic is disarmed.
-   */
   async sendAllClearAlerts(payload: {
     contacts: SMSContact[];
     incidentId: string;
@@ -134,9 +97,6 @@ export const twilioService = {
     );
   },
 
-  /**
-   * Send a check-in confirmation SMS — "I'm still okay, timer reset."
-   */
   async sendCheckInAlert(payload: {
     contacts: SMSContact[];
     userName: string;
@@ -151,13 +111,7 @@ export const twilioService = {
     );
   },
 
-  /**
-   * Send a test SMS to a single number to verify credentials are working.
-   */
   async sendTestSMS(toPhone: string): Promise<SMSResult> {
-    return sendSMS(
-      toPhone,
-      '✅ PAN-C test message — your Twilio integration is working correctly.'
-    );
+    return sendSMS(toPhone, '✅ PAN-C test message — your Twilio integration is working correctly.');
   },
 };
