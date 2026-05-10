@@ -25,7 +25,7 @@ router.post('/signup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Generate JWT tokens
-    const token = jwt.sign({ userId: email.toLowerCase() }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId: email.toLowerCase() }, process.env.JWT_SECRETS || process.env.JWT_SECRET, { expiresIn: '7d' });
     const refreshToken = jwt.sign({ userId: email.toLowerCase() }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
     // Create user
@@ -111,7 +111,7 @@ router.post('/login', async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
 
     // Generate new tokens
-    const token = jwt.sign({ userId: email.toLowerCase() }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId: email.toLowerCase() }, process.env.JWT_SECRETS || process.env.JWT_SECRET, { expiresIn: '7d' });
     const refreshToken = jwt.sign({ userId: email.toLowerCase() }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
     await db.collection('users').updateOne(
@@ -157,7 +157,7 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
-    const token = jwt.sign({ userId: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ userId: user.email }, process.env.JWT_SECRETS || process.env.JWT_SECRET, { expiresIn: '7d' });
     const newRefreshToken = jwt.sign({ userId: user.email }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
     await db.collection('users').updateOne(
@@ -189,6 +189,26 @@ router.put('/profile', requireAuth, async (req, res) => {
 
     await db.collection('users').updateOne({ email: req.userEmail }, { $set: update });
     res.json({ message: 'Profile updated' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/auth/safe-phrase — Set or update the panic disarm safe phrase
+router.post('/safe-phrase', requireAuth, async (req, res) => {
+  try {
+    const { safePhrase } = req.body;
+    if (!safePhrase || safePhrase.trim().length < 3) {
+      return res.status(400).json({ error: 'safePhrase must be at least 3 characters' });
+    }
+    const db = getDB();
+    const hashed = await bcrypt.hash(safePhrase.trim(), 10);
+    await db.collection('appSettings').updateOne(
+      { userEmail: req.userEmail },
+      { $set: { safePhrase: hashed, safePhraseLastSetAt: new Date(), updatedAt: new Date() } },
+      { upsert: true }
+    );
+    res.json({ success: true, message: 'Safe phrase set' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

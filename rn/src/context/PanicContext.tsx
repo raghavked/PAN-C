@@ -9,27 +9,13 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 import { elevenLabsService } from '../services/elevenLabsService';
-import { mongoService } from '../services/mongoService';
 import { backboardService } from '../services/backboardService';
 import { solanaService } from '../services/solanaService';
-import { twilioService } from '../services/twilioService';
 import { geminiService } from '../services/geminiService';
-
-const MOCK_CONTACTS = [
-  { name: 'Maria Garcia',   phone: '+15551234567', email: 'maria@example.com' },
-  { name: 'Carlos Lopez',   phone: '+15559876543', email: 'carlos@example.com' },
-  { name: 'Ana Rodriguez',  phone: '+15554567890', email: 'ana@example.com' },
-  { name: 'RAICES Hotline', phone: '+18885877777', email: 'legal@raices.org' },
-];
+import { api } from '../utils/apiClient';
+import { useAuth } from './AuthContext';
 
 const TIMER_START = 135;
-
-const generateIncidentId = (): string => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const p1 = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  const p2 = Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-  return `INC-${p1}-${p2}`;
-};
 
 interface PanicState {
   isActive: boolean;
@@ -49,6 +35,8 @@ export interface PanicContextValue extends PanicState {
 export const PanicContext = createContext<PanicContextValue | null>(null);
 
 export const PanicProvider = ({ children }: { children: ReactNode }) => {
+  const { user, safePhrase: storedPhrase } = useAuth();
+
   const [state, setState] = useState<PanicState>({
     isActive: false,
     contactsNotified: 0,
@@ -70,94 +58,103 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
   }, [state.isActive]);
 
   const triggerPanic = useCallback(async (): Promise<string> => {
-    const newIncidentId = generateIncidentId();
-    incidentIdRef.current = newIncidentId;
     const now = new Date();
 
-    setState({
-      isActive: true,
-      contactsNotified: MOCK_CONTACTS.length,
-      incidentId: newIncidentId,
-      timer: TIMER_START,
-      triggeredAt: now,
-      rightsReminder: '',
-    });
+    let latitude: number | undefined;
+    let longitude: number | undefined;
+    let address: string | undefined;
 
-    // Capture location — native only
-    let location: { lat: number; lng: number } | undefined;
     if (Platform.OS !== 'web') {
       try {
         const Location = await import('expo-location');
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          latitude = pos.coords.latitude;
+          longitude = pos.coords.longitude;
         }
       } catch (e) {
         console.warn('[PanicContext] Location unavailable:', e);
       }
     } else {
-      // Web: use browser Geolocation API
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
           navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
         );
-        location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
       } catch {
         console.warn('[PanicContext] Browser geolocation unavailable');
       }
     }
 
-    // Play voice alert (native only — guarded inside service)
-    elevenLabsService.playPanicAlert().then((sound) => {
-      soundRef.current = sound;
-    }).catch((e) => console.warn('[PanicContext] ElevenLabs failed:', e));
+    setState({
+      isActive: true,
+      contactsNotified: 0,
+      incidentId: 'TRIGGERING...',
+      timer: TIMER_START,
+      triggeredAt: now,
+      rightsReminder: '',
+    });
 
-    // Log to MongoDB
-    mongoService.createIncident({
-      incidentId: newIncidentId,
-      userId: 'user-alex-001',
-      timestamp: now.toISOString(),
-      location,
-      status: 'active',
-      contactsNotified: MOCK_CONTACTS.length,
-    }).catch((e) => console.warn('[PanicContext] MongoDB log failed:', e));
+    try {
+      const result = await api.post<{
+        incidentId: string;
+        contactsNotified: { contactName: string }[];
+        sentCount: number;
+        audioBase64?: string;
+      }>('/panic/trigger', { latitude, longitude, address });
 
-    // Save to Backboard memory
-    backboardService.saveIncidentMemory({
-      incidentId: newIncidentId,
-      outcome: 'active',
-      date: now.toISOString(),
-      notes: location ? `Location: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : undefined,
-    }).catch((e) => console.warn('[PanicContext] Backboard failed:', e));
+      const newIncidentId = result.incidentId;
+      incidentIdRef.current = newIncidentId;
 
-    // Log Solana memo
-    console.log('[PanicContext] Solana memo:', solanaService.buildIncidentMemo({
-      incidentId: newIncidentId,
-      userId: 'hashed-user-001',
-      timestamp: now.toISOString(),
-      status: 'active',
-    }));
+      setState((prev) => ({
+        ...prev,
+        incidentId: newIncidentId,
+        contactsNotified: result.sentCount ?? result.contactsNotified?.length ?? 0,
+      }));
 
-    // Send SMS alerts
-    twilioService.sendPanicAlerts({
-      contacts: MOCK_CONTACTS,
-      incidentId: newIncidentId,
-      userName: 'Alex',
-      location,
-    }).catch((e) => console.warn('[PanicContext] Twilio SMS failed:', e));
+      elevenLabsService.playPanicAlert().then((sound) => {
+        soundRef.current = sound;
+      }).catch((e) => console.warn('[PanicContext] ElevenLabs failed:', e));
 
-    // Fetch Gemini rights reminder
-    geminiService.getRightsReminder('English').then((reminder) => {
-      setState((prev) => ({ ...prev, rightsReminder: reminder }));
-    }).catch((e) => console.warn('[PanicContext] Gemini failed:', e));
+      backboardService.saveIncidentMemory({
+        incidentId: newIncidentId,
+        outcome: 'active',
+        date: now.toISOString(),
+        notes: latitude ? `Location: ${latitude.toFixed(4)}, ${longitude?.toFixed(4)}` : undefined,
+      }).catch(() => {});
 
-    console.log('🚨 PANIC TRIGGERED:', { incidentId: newIncidentId, timestamp: now.toISOString() });
-    return newIncidentId;
-  }, []);
+      console.log('[PanicContext] Solana memo:', solanaService.buildIncidentMemo({
+        incidentId: newIncidentId,
+        userId: user?.email ?? 'unknown',
+        timestamp: now.toISOString(),
+        status: 'active',
+      }));
+
+      geminiService.getRightsReminder('English').then((reminder) => {
+        setState((prev) => ({ ...prev, rightsReminder: reminder }));
+      }).catch(() => {});
+
+      console.log('PANIC TRIGGERED:', { incidentId: newIncidentId });
+      return newIncidentId;
+    } catch (e) {
+      console.error('[PanicContext] Trigger API failed:', e);
+      const fallbackId = `INC-${Math.random().toString(36).slice(2, 8).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+      incidentIdRef.current = fallbackId;
+      setState((prev) => ({ ...prev, incidentId: fallbackId }));
+      return fallbackId;
+    }
+  }, [user]);
 
   const disarmPanic = useCallback(async (safePhrase: string): Promise<boolean> => {
     if (!safePhrase.trim()) return false;
+
+    const localPhrase = storedPhrase;
+    if (localPhrase && safePhrase.trim().toLowerCase() !== localPhrase.toLowerCase()) {
+      console.warn('[PanicContext] Incorrect safe phrase');
+      return false;
+    }
 
     if (soundRef.current) {
       await elevenLabsService.stopAlert(soundRef.current);
@@ -167,26 +164,21 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
     const incidentId = incidentIdRef.current;
     const now = new Date();
 
-    mongoService.updateIncident(incidentId, {
-      status: 'disarmed',
-      disarmedAt: now.toISOString(),
-    }).catch((e) => console.warn('[PanicContext] MongoDB disarm failed:', e));
+    try {
+      await api.post('/panic/disarm', { incidentId, safePhrase: safePhrase.trim() });
+    } catch (e) {
+      console.warn('[PanicContext] Disarm API call failed (proceeding locally):', e);
+    }
 
     backboardService.saveIncidentMemory({
       incidentId,
       outcome: 'disarmed — person is safe',
       date: now.toISOString(),
-    }).catch((e) => console.warn('[PanicContext] Backboard disarm failed:', e));
-
-    twilioService.sendAllClearAlerts({
-      contacts: MOCK_CONTACTS,
-      incidentId,
-      userName: 'Alex',
-    }).catch((e) => console.warn('[PanicContext] Twilio all-clear failed:', e));
+    }).catch(() => {});
 
     console.log('[PanicContext] Solana disarm memo:', solanaService.buildIncidentMemo({
       incidentId,
-      userId: 'hashed-user-001',
+      userId: user?.email ?? 'unknown',
       timestamp: now.toISOString(),
       status: 'disarmed',
     }));
@@ -200,18 +192,14 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
       rightsReminder: '',
     });
 
-    console.log('✅ Panic disarmed');
+    console.log('Panic disarmed');
     return true;
-  }, []);
+  }, [user, storedPhrase]);
 
   const checkIn = useCallback(() => {
     setState((prev) => ({ ...prev, timer: TIMER_START }));
-    twilioService.sendCheckInAlert({
-      contacts: MOCK_CONTACTS,
-      userName: 'Alex',
-      incidentId: incidentIdRef.current,
-    }).catch((e) => console.warn('[PanicContext] Twilio check-in failed:', e));
-    console.log('✅ Check-in recorded');
+    api.post('/checkin/checkin', {}).catch(() => {});
+    console.log('Check-in recorded');
   }, []);
 
   return (
