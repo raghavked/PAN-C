@@ -16,9 +16,31 @@ async function registerFcmToken(authToken: string) {
     const Notifications = await import('expo-notifications');
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') return;
-    const tokenData = await Notifications.getDevicePushTokenAsync();
-    if (tokenData?.data) {
-      await apiRequest('/auth/fcm-token', 'POST', { fcmToken: tokenData.data }, authToken);
+
+    // Use Expo push token — works in Expo Go (anonymous) and standalone builds
+    let pushToken: string | null = null;
+    try {
+      const Constants = (await import('expo-constants')).default;
+      // For Expo Go without EAS registration, use experienceId (@anonymous/slug)
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      const slug = Constants.expoConfig?.slug ?? 'pan-c';
+      const owner = Constants.expoConfig?.owner ?? 'anonymous';
+      const tokenOpts: Record<string, string> = projectId
+        ? { projectId }
+        : { experienceId: `@${owner}/${slug}` };
+      const tokenData = await Notifications.getExpoPushTokenAsync(tokenOpts as any);
+      pushToken = tokenData.data; // 'ExponentPushToken[...]'
+    } catch {
+      // Fallback to device push token for standalone builds
+      try {
+        const tokenData = await Notifications.getDevicePushTokenAsync();
+        pushToken = tokenData?.data ?? null;
+      } catch { /* ignore */ }
+    }
+
+    if (pushToken) {
+      await apiRequest('/auth/fcm-token', 'POST', { fcmToken: pushToken }, authToken);
+      console.log('[Auth] Push token registered:', pushToken.slice(0, 30) + '...');
     }
   } catch (e) {
     console.warn('[Auth] FCM token registration skipped:', (e as Error).message);
