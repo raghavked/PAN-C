@@ -7,8 +7,7 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react';
-import * as Location from 'expo-location';
-import { Audio } from 'expo-av';
+import { Platform } from 'react-native';
 import { elevenLabsService } from '../services/elevenLabsService';
 import { mongoService } from '../services/mongoService';
 import { backboardService } from '../services/backboardService';
@@ -59,10 +58,9 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
     rightsReminder: '',
   });
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<{ stopAsync: () => Promise<void>; unloadAsync: () => Promise<void> } | null>(null);
   const incidentIdRef = useRef('');
 
-  // Countdown timer — ticks every second when panic is active
   useEffect(() => {
     if (!state.isActive) return;
     const id = setInterval(() => {
@@ -85,19 +83,32 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
       rightsReminder: '',
     });
 
-    // Capture location
+    // Capture location — native only
     let location: { lat: number; lng: number } | undefined;
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    if (Platform.OS !== 'web') {
+      try {
+        const Location = await import('expo-location');
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }
+      } catch (e) {
+        console.warn('[PanicContext] Location unavailable:', e);
       }
-    } catch (e) {
-      console.warn('[PanicContext] Location unavailable:', e);
+    } else {
+      // Web: use browser Geolocation API
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
+        );
+        location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      } catch {
+        console.warn('[PanicContext] Browser geolocation unavailable');
+      }
     }
 
-    // Play voice alert
+    // Play voice alert (native only — guarded inside service)
     elevenLabsService.playPanicAlert().then((sound) => {
       soundRef.current = sound;
     }).catch((e) => console.warn('[PanicContext] ElevenLabs failed:', e));
@@ -121,13 +132,12 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
     }).catch((e) => console.warn('[PanicContext] Backboard failed:', e));
 
     // Log Solana memo
-    const memo = solanaService.buildIncidentMemo({
+    console.log('[PanicContext] Solana memo:', solanaService.buildIncidentMemo({
       incidentId: newIncidentId,
       userId: 'hashed-user-001',
       timestamp: now.toISOString(),
       status: 'active',
-    });
-    console.log('[PanicContext] Solana memo:', memo);
+    }));
 
     // Send SMS alerts
     twilioService.sendPanicAlerts({

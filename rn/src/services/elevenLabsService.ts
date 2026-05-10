@@ -1,10 +1,19 @@
-import { Audio } from 'expo-av';
+import { Platform } from 'react-native';
 import { config } from '../config';
 
 const BASE_URL = 'https://api.elevenlabs.io/v1';
 
+type SoundHandle = { stopAsync: () => Promise<void>; unloadAsync: () => Promise<void> };
+
 export const elevenLabsService = {
-  async playPanicAlert(language = 'English'): Promise<Audio.Sound | null> {
+  async playPanicAlert(language = 'English'): Promise<SoundHandle | null> {
+    if (Platform.OS === 'web') {
+      console.log('[elevenLabsService] Audio not supported on web — skipping');
+      return null;
+    }
+
+    const { Audio } = await import('expo-av');
+
     const text = language === 'Spanish'
       ? 'AYUDA. MIGRA. Estoy en peligro. Por favor llama a mis contactos de emergencia ahora.'
       : 'HELP. ICE. I am in danger. Please call my emergency contacts now.';
@@ -39,9 +48,7 @@ export const elevenLabsService = {
       const arrayBuffer = await res.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
       let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
       const base64 = btoa(binary);
       const uri = `data:audio/mpeg;base64,${base64}`;
 
@@ -53,7 +60,7 @@ export const elevenLabsService = {
     }
   },
 
-  async stopAlert(sound: Audio.Sound | null): Promise<void> {
+  async stopAlert(sound: SoundHandle | null): Promise<void> {
     if (!sound) return;
     try {
       await sound.stopAsync();
