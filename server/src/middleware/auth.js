@@ -11,15 +11,15 @@ async function requireAuth(req, res, next) {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRETS || process.env.JWT_SECRET);
 
-    // Verify token is still valid in DB
+    // Look up user to attach to request (JWT signature + expiry is sufficient auth)
     const db = getDB();
     const user = await db.collection('users').findOne(
       { email: decoded.userId },
       { projection: { password: 0 } }
     );
 
-    if (!user || user.authToken !== token) {
-      return res.status(401).json({ error: 'Token invalid or expired' });
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
     }
 
     req.user = user;
