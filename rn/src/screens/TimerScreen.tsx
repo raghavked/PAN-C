@@ -15,7 +15,7 @@ const PRESETS = [
 ];
 
 export const TimerScreen: React.FC = () => {
-  const { isActive, timer, checkIn } = usePanic();
+  const { isActive, timer, checkIn, triggerPanic } = usePanic();
   const [localSeconds, setLocalSeconds] = useState(30 * 60);
   const [running, setRunning] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState(1);
@@ -62,6 +62,19 @@ export const TimerScreen: React.FC = () => {
   const pct = localSeconds / PRESETS[selectedPreset].seconds;
   const isLow = localSeconds > 0 && localSeconds < 60;
   const isDone = localSeconds === 0;
+
+  // Auto-trigger panic when the safety timer expires and the user hasn't checked in
+  const hasAutoTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (isDone && running === false && !isActive && !hasAutoTriggeredRef.current) {
+      // Timer expired naturally (not manually stopped) — trigger panic
+      hasAutoTriggeredRef.current = true;
+      triggerPanic().catch((e) => console.warn('[Timer] Auto-trigger failed:', e));
+    }
+    if (!isDone) {
+      hasAutoTriggeredRef.current = false; // reset when timer is restarted
+    }
+  }, [isDone, running, isActive, triggerPanic]);
 
   const handlePreset = (idx: number) => {
     setSelectedPreset(idx);

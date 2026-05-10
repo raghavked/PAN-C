@@ -97,7 +97,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (stored) {
       setToken(stored);
       apiRequest<{ user: AuthUser }>('/auth/me', 'GET', undefined, stored)
-        .then(({ user }) => setUser(user))
+        .then(({ user }) => {
+          setUser(user);
+          // Re-register push token on every app open so stale/missing tokens are refreshed
+          registerFcmToken(stored).catch(() => {});
+        })
         .catch(() => {
           storage.removeItem(TOKEN_KEY);
           setToken(null);
