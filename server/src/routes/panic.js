@@ -7,7 +7,6 @@ const { PDFDocument } = require('pdf-lib');
 const { getDB } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendNotification, sendToMany } = require('../services/fcmService');
-const { sendPanicSms, sendDisarmSms } = require('../services/twilioService');
 
 const router = express.Router();
 
