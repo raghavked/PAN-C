@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Animated, SafeAreaView, ScrollView, Pressable, TextInput,
+  View, Text, StyleSheet, Animated, SafeAreaView, ScrollView, Pressable, TextInput, Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme';
@@ -18,8 +18,8 @@ export const PanicActiveScreen: React.FC = () => {
     if (!isActive) { flashAnim.setValue(1); return; }
     const anim = Animated.loop(
       Animated.sequence([
-        Animated.timing(flashAnim, { toValue: 0.55, duration: 600, useNativeDriver: true }),
-        Animated.timing(flashAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(flashAnim, { toValue: 0.55, duration: 600, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(flashAnim, { toValue: 1, duration: 600, useNativeDriver: Platform.OS !== 'web' }),
       ])
     );
     anim.start();

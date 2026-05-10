@@ -211,13 +211,17 @@ router.post('/trigger', requireAuth, async (req, res) => {
       ...(contactEmails.length ? [{ email: { $in: contactEmails } }] : []),
       ...(contactPhones.length ? [{ phone: { $in: contactPhones } }] : []),
     ];
-    const userTokenMap = {};
+    const userTokenMap = {};   // email/phone → fcmToken  (push-capable)
+    const userAccountMap = {}; // email/phone → user doc   (has account, may or may not have FCM)
     if (lookupConditions.length) {
-      const registeredUsers = await db.collection('users').find(
-        { $or: lookupConditions, fcmToken: { $exists: true, $ne: null } },
+      // Fetch ALL contacts with a PAN!C account — regardless of FCM token
+      const allAccountUsers = await db.collection('users').find(
+        { $or: lookupConditions },
         { projection: { email: 1, phone: 1, fcmToken: 1 } }
       ).toArray();
-      registeredUsers.forEach(u => {
+      allAccountUsers.forEach(u => {
+        if (u.email) userAccountMap[u.email.toLowerCase()] = u;
+        if (u.phone) userAccountMap[u.phone] = u;
         if (u.fcmToken) {
           if (u.email) userTokenMap[u.email.toLowerCase()] = u.fcmToken;
           if (u.phone) userTokenMap[u.phone] = u.fcmToken;
@@ -347,26 +351,63 @@ router.post('/trigger', requireAuth, async (req, res) => {
       }
     }
 
+    // ── Store pending in-app alerts for contacts with accounts but no FCM ────
+    let pendingAlertCount = 0;
+    for (const contact of resolvedContacts) {
+      if (contact.resolvedFcmToken) continue; // already handled via FCM push
+      const accountUser =
+        (contact.email && userAccountMap[contact.email.toLowerCase()]) ||
+        (contact.phone && userAccountMap[contact.phone]);
+      if (!accountUser) continue; // no PAN!C account — nothing we can do yet
+      const showDocs = docBundleLink && (contact.canSeeDocuments !== false);
+      await db.collection('users').updateOne(
+        { email: accountUser.email },
+        {
+          $push: {
+            pendingAlerts: {
+              incidentId,
+              triggeredBy:     req.userEmail,
+              userName,
+              locationDisplay,
+              helpLink,
+              docBundleLink:   showDocs ? docBundleLink : null,
+              triggeredAt:     incidentTime,
+              status:          'active',
+              read:            false,
+            },
+          },
+        }
+      );
+      pendingAlertCount++;
+      console.log(`[PAN!C] Pending in-app alert stored for ${contact.name} (${accountUser.email})`);
+    }
+
     // ── Build contactsNotified array ──────────────────────────────────────────
     const contactsNotified = resolvedContacts.map(c => {
       const pushEnabled = !!c.resolvedFcmToken;
+      const accountUser =
+        (c.email && userAccountMap[c.email.toLowerCase()]) ||
+        (c.phone && userAccountMap[c.phone]);
       let status;
-      if (!c.resolvedFcmToken) {
-        status = 'no_app';
-      } else if (failedTokens.includes(c.resolvedFcmToken)) {
-        status = 'failed';
-      } else {
+      if (pushEnabled && !failedTokens.includes(c.resolvedFcmToken)) {
         status = 'sent';
+      } else if (pushEnabled && failedTokens.includes(c.resolvedFcmToken)) {
+        status = 'failed';
+      } else if (accountUser) {
+        status = 'pending_in_app';
+      } else {
+        status = 'no_account';
       }
       return {
         contactId:       c._id,
         name:            c.name,
         phone:           c.phone || null,
         hasApp:          pushEnabled,
+        hasAccount:      !!accountUser,
         pushEnabled,
         canSeeDocuments: c.canSeeDocuments !== false,
         notifiedAt:      new Date(),
-        method:          pushEnabled ? 'fcm_push' : 'no_app',
+        method:          pushEnabled ? 'fcm_push' : accountUser ? 'pending_in_app' : 'no_account',
         status,
       };
     });
@@ -407,7 +448,7 @@ router.post('/trigger', requireAuth, async (req, res) => {
       }
     );
 
-    console.log(`[PAN!C] Incident ${incidentId}: FCM sent=${sentCount}, failed=${failedCount}, helpLink=${helpLink}, docBundle=${!!docBundleLink}`);
+    console.log(`[PAN!C] Incident ${incidentId}: FCM sent=${sentCount}, failed=${failedCount}, pending_in_app=${pendingAlertCount}, helpLink=${helpLink}, docBundle=${!!docBundleLink}`);
 
     res.status(201).json({
       incidentId,
@@ -496,6 +537,12 @@ router.post('/disarm', requireAuth, async (req, res) => {
       );
     }
 
+    // Mark any pending in-app alerts for this incident as disarmed
+    await db.collection('users').updateMany(
+      { 'pendingAlerts.incidentId': incidentId },
+      { $set: { 'pendingAlerts.$.status': 'disarmed', 'pendingAlerts.$.disarmedAt': now } }
+    );
+
     await db.collection('chatbotConversations').updateOne(
       { userEmail: req.userEmail },
       { $set: { 'context.checkInStatus': 'safe', updatedAt: now } }
@@ -504,6 +551,38 @@ router.post('/disarm', requireAuth, async (req, res) => {
     res.json({ message: 'Incident disarmed. All-clear push notification sent to contacts.' });
   } catch (err) {
     console.error('[PAN!C] Panic disarm error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── GET /api/panic/pending-alert — Returns latest unread pending alert ────────
+router.get('/pending-alert', requireAuth, async (req, res) => {
+  try {
+    const db = getDB();
+    const user = await db.collection('users').findOne(
+      { email: req.userEmail },
+      { projection: { pendingAlerts: 1 } }
+    );
+    const alerts = (user?.pendingAlerts || []).filter(a => !a.read);
+    const latest = alerts.sort((a, b) => new Date(b.triggeredAt) - new Date(a.triggeredAt))[0];
+    res.json({ pendingAlert: latest || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/panic/pending-alert/dismiss — Mark a pending alert as read ──────
+router.post('/pending-alert/dismiss', requireAuth, async (req, res) => {
+  try {
+    const { incidentId } = req.body;
+    if (!incidentId) return res.status(400).json({ error: 'incidentId required' });
+    const db = getDB();
+    await db.collection('users').updateOne(
+      { email: req.userEmail, 'pendingAlerts.incidentId': incidentId },
+      { $set: { 'pendingAlerts.$.read': true } }
+    );
+    res.json({ message: 'Alert dismissed' });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

@@ -22,22 +22,22 @@ export const PanicButton: React.FC<Props> = ({ onPress, isActive, disabled }) =>
       const anim = Animated.loop(
         Animated.parallel([
           Animated.sequence([
-            Animated.timing(pulse1, { toValue: 1.35, duration: 900, useNativeDriver: true }),
-            Animated.timing(pulse1, { toValue: 1, duration: 900, useNativeDriver: true }),
+            Animated.timing(pulse1, { toValue: 1.35, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(pulse1, { toValue: 1, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
           ]),
           Animated.sequence([
-            Animated.timing(opacity1, { toValue: 0, duration: 900, useNativeDriver: true }),
-            Animated.timing(opacity1, { toValue: 0.5, duration: 900, useNativeDriver: true }),
-          ]),
-          Animated.sequence([
-            Animated.delay(350),
-            Animated.timing(pulse2, { toValue: 1.65, duration: 900, useNativeDriver: true }),
-            Animated.timing(pulse2, { toValue: 1, duration: 900, useNativeDriver: true }),
+            Animated.timing(opacity1, { toValue: 0, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(opacity1, { toValue: 0.5, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
           ]),
           Animated.sequence([
             Animated.delay(350),
-            Animated.timing(opacity2, { toValue: 0, duration: 900, useNativeDriver: true }),
-            Animated.timing(opacity2, { toValue: 0.3, duration: 900, useNativeDriver: true }),
+            Animated.timing(pulse2, { toValue: 1.65, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(pulse2, { toValue: 1, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+          ]),
+          Animated.sequence([
+            Animated.delay(350),
+            Animated.timing(opacity2, { toValue: 0, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+            Animated.timing(opacity2, { toValue: 0.3, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
           ]),
         ])
       );

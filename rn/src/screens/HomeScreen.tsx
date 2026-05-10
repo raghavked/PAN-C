@@ -1,12 +1,13 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, SafeAreaView, Pressable,
+  View, Text, ScrollView, StyleSheet, SafeAreaView, Pressable, Linking, Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { PanicButton } from '../components/panic/PanicButton';
 import { colors, spacing, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
+import { usePendingAlert } from '../hooks/usePendingAlert';
 
 type MIName = React.ComponentProps<typeof MaterialIcons>['name'];
 
@@ -36,8 +37,19 @@ const GRID: GridTile[] = [
   { icon: 'gavel', label: 'RIGHTS', tab: 'Rights' },
 ];
 
+function formatAlertTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export const HomeScreen: React.FC = () => {
   const { isActive, contactsNotified, incidentId, triggerPanic } = usePanic();
+  const { pendingAlert, dismiss } = usePendingAlert();
   const navigation = useNavigation<any>();
 
   return (
@@ -53,6 +65,54 @@ export const HomeScreen: React.FC = () => {
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+
+        {!!pendingAlert && (
+          <View style={s.alertBanner}>
+            <View style={s.alertHeader}>
+              <MaterialIcons name="warning" size={20} color={colors.onPrimary} />
+              <Text style={s.alertTitle}>EMERGENCY ALERT RECEIVED</Text>
+            </View>
+            <Text style={s.alertBody}>
+              <Text style={s.alertName}>{pendingAlert.userName}</Text>
+              {' '}triggered a panic alert
+              {pendingAlert.status === 'disarmed' ? ' (now resolved)' : ' and may need help'}.
+            </Text>
+            {!!pendingAlert.locationDisplay && (
+              <Text style={s.alertMeta}>Location: {pendingAlert.locationDisplay}</Text>
+            )}
+            <Text style={s.alertMeta}>
+              {formatAlertTime(pendingAlert.triggeredAt)}
+              {' · '}ID: {pendingAlert.incidentId}
+            </Text>
+            <View style={s.alertActions}>
+              {!!pendingAlert.helpLink && (
+                <Pressable
+                  style={s.alertActionBtn}
+                  onPress={() => Linking.openURL(pendingAlert.helpLink)}
+                >
+                  <MaterialIcons name="open-in-new" size={14} color={colors.primary} />
+                  <Text style={s.alertActionText}>NEXT STEPS</Text>
+                </Pressable>
+              )}
+              {!!pendingAlert.docBundleLink && (
+                <Pressable
+                  style={s.alertActionBtn}
+                  onPress={() => Linking.openURL(pendingAlert.docBundleLink!)}
+                >
+                  <MaterialIcons name="description" size={14} color={colors.primary} />
+                  <Text style={s.alertActionText}>DOCUMENTS</Text>
+                </Pressable>
+              )}
+              <Pressable
+                style={[s.alertActionBtn, s.alertDismissBtn]}
+                onPress={() => dismiss(pendingAlert.incidentId)}
+              >
+                <MaterialIcons name="check" size={14} color={colors.textMuted} />
+                <Text style={s.alertDismissText}>DISMISS</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         <View style={s.statusCard}>
           <View style={s.statusLeft}>
@@ -130,6 +190,28 @@ const s = StyleSheet.create({
   settingsBtn: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { padding: spacing.md, paddingBottom: 100, gap: spacing.md },
+
+  alertBanner: {
+    backgroundColor: colors.primary, borderRadius: radius.md,
+    padding: spacing.md, gap: spacing.sm,
+  },
+  alertHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  alertTitle: {
+    fontSize: 13, fontWeight: '800', color: colors.onPrimary,
+    textTransform: 'uppercase', letterSpacing: 1,
+  },
+  alertBody: { fontSize: 14, color: colors.onPrimary, lineHeight: 20 },
+  alertName: { fontWeight: '800' },
+  alertMeta: { fontSize: 11, color: 'rgba(255,255,255,0.75)', fontWeight: '600' },
+  alertActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: 4 },
+  alertActionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: colors.onPrimary, borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  alertActionText: { fontSize: 11, fontWeight: '700', color: colors.primary, textTransform: 'uppercase' },
+  alertDismissBtn: { backgroundColor: 'rgba(255,255,255,0.15)' },
+  alertDismissText: { fontSize: 11, fontWeight: '700', color: colors.onPrimary, textTransform: 'uppercase' },
 
   statusCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

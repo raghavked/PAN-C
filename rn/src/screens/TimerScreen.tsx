@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, Pressable, Animated,
+  View, Text, StyleSheet, SafeAreaView, Pressable, Animated, Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme';
@@ -40,8 +40,8 @@ export const TimerScreen: React.FC = () => {
     if (running && localSeconds < 60) {
       const anim = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 0.4, duration: 500, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 0.4, duration: 500, useNativeDriver: Platform.OS !== 'web' }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 500, useNativeDriver: Platform.OS !== 'web' }),
         ])
       );
       anim.start();
