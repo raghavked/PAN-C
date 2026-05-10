@@ -92,8 +92,16 @@ export const SignupScreen: React.FC<Props> = ({ onGoLogin }) => {
 
   return (
     <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          contentContainerStyle={s.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={s.topRow}>
             <Pressable onPress={step === 1 ? onGoLogin : () => { setStep((s) => (s - 1) as Step); setError(null); }} style={s.backBtn}>
               <MaterialIcons name="arrow-back" size={20} color={colors.textSecondary} />

@@ -1,9 +1,11 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable,
+  View, Text, StyleSheet, ScrollView, Pressable,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { colors, spacing, radius } from '../theme';
 import { geminiService, GeminiMessage } from '../services/geminiService';
 
@@ -32,6 +34,7 @@ const WELCOME: Message = {
 };
 
 export const ChatScreen: React.FC = () => {
+  const tabBarHeight = useBottomTabBarHeight();
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,7 +72,7 @@ export const ChatScreen: React.FC = () => {
   const fmt = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <View style={s.topBar}>
         <Text style={s.appName}>PAN!C</Text>
       </View>
@@ -147,7 +150,7 @@ export const ChatScreen: React.FC = () => {
           ))}
         </ScrollView>
 
-        <View style={s.inputRow}>
+        <View style={[s.inputRow, { paddingBottom: tabBarHeight > 0 ? tabBarHeight - 8 : 8 }]}>
           <TextInput
             style={s.input}
             placeholder="Ask about your rights…"

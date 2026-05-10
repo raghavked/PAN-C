@@ -60,6 +60,12 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
   const triggerPanic = useCallback(async (): Promise<string> => {
     const now = new Date();
 
+    // ── Fire sound IMMEDIATELY on button press, before any async work ──
+    // This runs in the background; we store the handle when it resolves
+    elevenLabsService.playPanicAlert().then((sound) => {
+      soundRef.current = sound;
+    }).catch((e) => console.warn('[PanicContext] ElevenLabs failed:', e));
+
     let latitude: number | undefined;
     let longitude: number | undefined;
     let address: string | undefined;
@@ -113,10 +119,6 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
         incidentId: newIncidentId,
         contactsNotified: result.sentCount ?? result.contactsNotified?.length ?? 0,
       }));
-
-      elevenLabsService.playPanicAlert().then((sound) => {
-        soundRef.current = sound;
-      }).catch((e) => console.warn('[PanicContext] ElevenLabs failed:', e));
 
       backboardService.saveIncidentMemory({
         incidentId: newIncidentId,

@@ -1,9 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, SafeAreaView, Pressable,
-  TextInput, Modal, ActivityIndicator, Alert,
+  View, Text, StyleSheet, ScrollView, Pressable,
+  TextInput, Modal, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { api } from '../utils/apiClient';
 import { colors, spacing, radius } from '../theme';
 
@@ -29,6 +31,7 @@ function getPermLabel(c: Contact): string {
 }
 
 export const ContactsScreen: React.FC = () => {
+  const tabBarHeight = useBottomTabBarHeight();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -86,12 +89,12 @@ export const ContactsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <View style={s.topBar}>
         <Text style={s.appName}>PAN!C</Text>
       </View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[s.content, { paddingBottom: tabBarHeight + 16 }]} showsVerticalScrollIndicator={false}>
         <View style={s.pageHeader}>
           <Text style={s.pageTitle}>{'Emergency\nContacts'}</Text>
           <Text style={s.pageSub}>Manage authorized personnel and their notification permissions.</Text>
@@ -181,8 +184,13 @@ export const ContactsScreen: React.FC = () => {
       </ScrollView>
 
       <Modal visible={showModal} animationType="slide" transparent presentationStyle="overFullScreen">
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+        >
+          <View style={s.modalOverlay}>
+          <View style={[s.modalCard, { marginBottom: Platform.OS === 'ios' ? 0 : 20 }]}>
             <View style={s.modalHeader}>
               <Text style={s.modalTitle}>ADD CONTACT</Text>
               <Pressable onPress={() => setShowModal(false)} style={s.modalClose}>
@@ -237,7 +245,8 @@ export const ContactsScreen: React.FC = () => {
                 : <Text style={s.saveBtnText}>SAVE CONTACT</Text>}
             </Pressable>
           </View>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

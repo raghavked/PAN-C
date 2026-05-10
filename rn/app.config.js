@@ -34,6 +34,7 @@ module.exports = {
           microphonePermission: false,
         },
       ],
+
     ],
     web: {
       bundler: 'metro',

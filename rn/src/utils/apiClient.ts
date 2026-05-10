@@ -3,21 +3,46 @@ import Constants from 'expo-constants';
 import { storage } from './storage';
 
 /**
- * API base URL resolution:
+ * API base URL resolution — three environments:
  *
- * - When running in Expo Go via a tunnel, Metro proxies /api → localhost:3001
- *   automatically (see metro.config.js), so /api works for all native requests.
+ * 1. Native device via Expo Go tunnel:
+ *    Expo sets Constants.expoConfig.hostUri to the Metro tunnel hostname,
+ *    e.g. "pm0-89w-anonymous-8081.exp.direct"
+ *    We use the SAME host — Metro's enhanceMiddleware proxies /api/* → localhost:3001
+ *    So: https://pm0-89w-anonymous-8081.exp.direct/api/auth/login → backend
  *
- * - If you ever need to point directly at a remote server (e.g. production),
- *   set EXPO_PUBLIC_API_URL=https://your-server.com in rn/.env
- *   and the app will use that instead.
+ * 2. Native device on LAN (expo start --lan):
+ *    hostUri is "192.168.x.x:8081" — we use the same IP, same port
+ *    Metro proxy handles /api forwarding
  *
- * - On web (Vite dev server), /api is proxied to localhost:3001 by vite.config.ts.
+ * 3. Web (Vite dev server):
+ *    Uses relative /api — Vite proxies to localhost:3001
  */
-const API_BASE: string =
-  (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_API_URL)
-    ? (process.env.EXPO_PUBLIC_API_URL as string).replace(/\/$/, '')
-    : '/api';
+function resolveApiBase(): string {
+  if (Platform.OS !== 'web') {
+    const hostUri: string | undefined =
+      (Constants.expoConfig as { hostUri?: string } | null)?.hostUri ??
+      (Constants.manifest2 as { extra?: { expoClient?: { hostUri?: string } } } | null)
+        ?.extra?.expoClient?.hostUri ??
+      (Constants.manifest as { hostUri?: string } | null)?.hostUri;
+
+    if (hostUri) {
+      // Strip any path component, keep only host[:port]
+      const host = hostUri.split('/')[0];
+      // exp.direct tunnel — use https
+      if (host.includes('exp.direct')) {
+        return `https://${host}`;
+      }
+      // LAN — use http
+      return `http://${host}`;
+    }
+  }
+
+  // Web fallback — Vite proxy handles /api
+  return '/api';
+}
+
+const API_BASE = resolveApiBase();
 
 export async function apiRequest<T = unknown>(
   path: string,
@@ -31,8 +56,10 @@ export async function apiRequest<T = unknown>(
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  // Resolve full URL: if API_BASE already contains /api, path should NOT start with /api
-  const url = API_BASE === '/api'
+  // Build full URL:
+  // - If API_BASE is "/api" (web Vite), path is appended: /api/auth/login
+  // - If API_BASE is a full URL (native), append /api + path: https://host/api/auth/login
+  const url = API_BASE.startsWith('/')
     ? `${API_BASE}${path}`
     : `${API_BASE}/api${path}`;
 
@@ -52,9 +79,9 @@ export async function apiRequest<T = unknown>(
 }
 
 export const api = {
-  get:    <T = unknown>(path: string)              => apiRequest<T>(path, 'GET'),
+  get:    <T = unknown>(path: string)               => apiRequest<T>(path, 'GET'),
   post:   <T = unknown>(path: string, body: unknown) => apiRequest<T>(path, 'POST', body),
   put:    <T = unknown>(path: string, body: unknown) => apiRequest<T>(path, 'PUT', body),
   patch:  <T = unknown>(path: string, body: unknown) => apiRequest<T>(path, 'PATCH', body),
-  delete: <T = unknown>(path: string)              => apiRequest<T>(path, 'DELETE'),
+  delete: <T = unknown>(path: string)               => apiRequest<T>(path, 'DELETE'),
 };

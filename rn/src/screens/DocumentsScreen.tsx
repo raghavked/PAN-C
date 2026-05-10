@@ -1,11 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, SafeAreaView, Pressable,
+  View, Text, StyleSheet, ScrollView, Pressable,
   ActivityIndicator, Modal, TextInput, Alert, Linking, Platform,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { api, apiRequest } from '../utils/apiClient';
 import { storage } from '../utils/storage';
 import { colors, spacing, radius } from '../theme';
@@ -76,6 +78,7 @@ function isExpired(expiresAt?: string) {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export const DocumentsScreen: React.FC = () => {
+  const tabBarHeight = useBottomTabBarHeight();
   const [docs, setDocs] = useState<VaultDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -191,16 +194,9 @@ export const DocumentsScreen: React.FC = () => {
   const handleView = async (doc: VaultDoc) => {
     // Generate a fresh share link (24h) and open it in the system browser
     try {
-      const token = storage.getItem('panc_auth_token');
-      const res = await fetch(`/api/documents/${doc._id}/share`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ expiresInHours: 24 }),
-      });
-      const data = await res.json();
+      const data = await apiRequest<{ shareUrl: string }>(
+        `/documents/${doc._id}/share`, 'POST', { expiresInHours: 24 }
+      );
       if (data.shareUrl) {
         await Linking.openURL(data.shareUrl);
         await fetchDocs();
@@ -264,7 +260,7 @@ export const DocumentsScreen: React.FC = () => {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <View style={s.topBar}>
         <Text style={s.appName}>PAN!C</Text>
         <Pressable style={s.uploadBtn} onPress={() => { setShowUpload(true); setUploadError(null); }}>
@@ -273,7 +269,7 @@ export const DocumentsScreen: React.FC = () => {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[s.content, { paddingBottom: tabBarHeight + 16 }]} showsVerticalScrollIndicator={false}>
         <View style={s.pageHeader}>
           <Text style={s.pageTitle}>VAULT</Text>
           <Text style={s.pageSub}>

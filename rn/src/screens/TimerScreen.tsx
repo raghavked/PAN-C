@@ -1,6 +1,7 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, SafeAreaView, Pressable, Animated, Platform,
+  View, Text, StyleSheet, Pressable, Animated, Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme';
@@ -75,6 +76,19 @@ export const TimerScreen: React.FC = () => {
   const isLow = localSeconds > 0 && localSeconds < 60;
   const isDone = localSeconds === 0;
 
+  // Auto-trigger panic when the safety timer expires and the user hasn't checked in
+  const hasAutoTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (isDone && running === false && !isActive && !hasAutoTriggeredRef.current) {
+      // Timer expired naturally (not manually stopped) — trigger panic
+      hasAutoTriggeredRef.current = true;
+      triggerPanic().catch((e) => console.warn('[Timer] Auto-trigger failed:', e));
+    }
+    if (!isDone) {
+      hasAutoTriggeredRef.current = false; // reset when timer is restarted
+    }
+  }, [isDone, running, isActive, triggerPanic]);
+
   const handlePreset = (idx: number) => {
     setSelectedPreset(idx);
     setLocalSeconds(PRESETS[idx].seconds);
@@ -93,7 +107,7 @@ export const TimerScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={["top","left","right"]}>
       <View style={s.topBar}>
         <Text style={s.appName}>PAN!C</Text>
       </View>

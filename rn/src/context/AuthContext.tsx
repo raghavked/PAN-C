@@ -14,10 +14,12 @@ import { registerForPushNotificationsAsync } from '../services/pushNotifications
 async function registerPushToken(authToken: string) {
   if (Platform.OS === 'web') return;
   try {
+
     const token = await registerForPushNotificationsAsync();
     if (token) {
       await apiRequest('/user/push-token', 'POST', { pushToken: token }, authToken);
       console.log('[Auth] Expo Push Token registered with backend');
+
     }
   } catch (e) {
     console.warn('[Auth] Push token registration skipped:', (e as Error).message);
@@ -67,6 +69,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     initStorage().then(() => {
+
       const stored = storage.getItem(TOKEN_KEY);
       const phrase = storage.getItem(PHRASE_KEY);
       if (phrase) setSafePhraseState(phrase);
@@ -86,6 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       }
     });
+
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
