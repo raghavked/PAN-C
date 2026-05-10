@@ -39,7 +39,7 @@ module.exports = {
     web: {
       bundler: 'metro',
     },
-    newArchEnabled: false,
+    newArchEnabled: true,
     owner: process.env.EXPO_OWNER || undefined,
     extra: {
       eas: {

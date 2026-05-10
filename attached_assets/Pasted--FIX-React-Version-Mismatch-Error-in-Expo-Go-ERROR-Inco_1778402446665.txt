@@ -1,0 +1,331 @@
+# 🔧 FIX: React Version Mismatch Error in Expo Go
+
+**ERROR**: 
+```
+Incompatible React versions:
+- react: 19.2.6
+- react-native-renderer: 19.1.0
+```
+
+**CAUSE**: React and React Native have different versions installed  
+**SOLUTION**: Downgrade React to match React Native, or upgrade React Native
+
+---
+
+## QUICK FIX (Recommended)
+
+### Option A: Downgrade React (Fastest)
+
+```bash
+cd rn
+
+# Remove current node_modules
+rm -rf node_modules
+
+# Downgrade react to 19.1.0 to match react-native-renderer
+npm install react@19.1.0 --save
+
+# Reinstall all dependencies
+npm install
+
+# Clear Metro cache
+npm start -- --reset-cache
+
+# Or if using expo start:
+npx expo start --clear
+```
+
+---
+
+### Option B: Upgrade React Native (If You Need Latest React)
+
+```bash
+cd rn
+
+# Remove node_modules
+rm -rf node_modules
+
+# Check current React Native version
+npm list react-native
+
+# Upgrade React Native to latest
+npm install react-native@latest
+
+# Reinstall dependencies
+npm install
+
+# Clear cache
+npx expo start --clear
+```
+
+---
+
+## STEP-BY-STEP FIX
+
+### Step 1: Go to RN Directory
+
+```bash
+cd rn
+```
+
+### Step 2: Check Current Versions
+
+```bash
+npm list react react-native
+
+# Should show what's currently installed
+```
+
+### Step 3: Remove Node Modules
+
+```bash
+# This clears cached packages
+rm -rf node_modules package-lock.json
+
+# Verify deletion
+ls node_modules 2>/dev/null && echo "⚠️  Still there" || echo "✅ Removed"
+```
+
+### Step 4: Fix the Version Mismatch
+
+**Choose ONE approach:**
+
+**Approach A - Keep React 19.1.0 (Recommended)**
+```bash
+# Install exact matching versions
+npm install react@19.1.0 react-native@19.1.0
+
+# Then install all other dependencies
+npm install
+
+echo "✅ Versions aligned to 19.1.0"
+```
+
+**Approach B - Use Latest Compatible**
+```bash
+# Get latest stable versions that work together
+npm install react@latest react-native@latest
+
+# Install all dependencies
+npm install
+
+echo "✅ Updated to latest compatible versions"
+```
+
+### Step 5: Clear Metro Cache
+
+```bash
+# Clear Metro bundler cache
+npx expo start --clear
+
+# Or manually delete cache
+rm -rf ~/.expo
+```
+
+### Step 6: Verify Fix
+
+```bash
+# Check versions are now the same
+npm list react react-native
+
+# Should show:
+# ├── react@19.1.0
+# └── react-native@19.1.0
+
+echo "✅ Versions matched!"
+```
+
+---
+
+## COMPLETE COMMANDS (Copy & Paste)
+
+If you want to run it all at once:
+
+```bash
+cd rn && \
+rm -rf node_modules package-lock.json && \
+npm install react@19.1.0 react-native@19.1.0 && \
+npm install && \
+npx expo start --clear
+```
+
+---
+
+## VERIFY IN PACKAGE.JSON
+
+After fixing, check `rn/package.json`:
+
+```json
+{
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-native": "^19.1.0",
+    "react-native-renderer": "^19.1.0",
+    ...
+  }
+}
+```
+
+All should be same major.minor version (19.1.x is fine, 19.1.0 vs 19.2.0 is NOT fine)
+
+---
+
+## WHAT EACH VERSION CONTROLS
+
+| Package | Purpose |
+|---------|---------|
+| `react` | React core library |
+| `react-native` | React Native framework |
+| `react-native-renderer` | Converts React to native code |
+
+**They MUST match because** React Native renderer depends on React's internal APIs which change between versions.
+
+---
+
+## IF YOU STILL GET THE ERROR
+
+### Force Clean Restart
+
+```bash
+cd rn
+
+# Complete nuclear option
+rm -rf node_modules
+rm -rf package-lock.json
+rm -rf ~/.expo
+rm -rf ~/.cache/expo
+
+# Fresh install
+npm install
+
+# Start with absolutely fresh cache
+npx expo start --clear
+```
+
+### Check NPM Cache
+
+```bash
+# Clear npm cache entirely
+npm cache clean --force
+
+# Reinstall
+cd rn
+npm install
+
+# Start
+npx expo start --clear
+```
+
+### Reload Expo Go
+
+On your phone:
+1. **Close Expo Go app completely**
+2. **Reopen Expo Go**
+3. **Scan QR code again**
+4. Wait for app to bundle and load
+
+---
+
+## EXPECTED OUTPUT AFTER FIX
+
+**Terminal should show:**
+```
+✓ Expo dev server started
+✓ Metro bundler ready
+✓ QR Code: [QR displayed]
+
+✅ No React version mismatch errors
+✅ App loads in Expo Go
+```
+
+**Expo Go should show:**
+```
+Downloading JavaScript
+Bundling JavaScript
+Loading app...
+[App loads successfully]
+```
+
+---
+
+## TROUBLESHOOTING
+
+### "Still getting error after npm install"
+
+```bash
+# Nuke everything
+cd rn
+rm -rf node_modules package-lock.json yarn.lock
+
+# Use exact versions
+npm install --save react@19.1.0
+npm install --save react-native@19.1.0
+npm install
+
+# Try again
+npx expo start --clear
+```
+
+### "Metro bundler keeps failing"
+
+```bash
+# Stop Expo
+# Press Ctrl+C
+
+# Wait 5 seconds
+
+# Start fresh
+npx expo start --clear
+
+# If still fails:
+npx expo start --localhost
+```
+
+### "Getting different error now"
+
+```bash
+# Check what's actually installed
+npm list react react-native | grep -E "react@|react-native@"
+
+# Verify they match
+# react: X.Y.Z must equal react-native: X.Y.Z
+```
+
+---
+
+## QUICK REFERENCE
+
+| Problem | Solution |
+|---------|----------|
+| React 19.2.6 vs 19.1.0 | `npm install react@19.1.0` |
+| Version mismatch still happening | `rm -rf node_modules && npm install` |
+| App won't load after fix | Reload Expo Go (close + reopen) |
+| Metro keeps failing | `npx expo start --clear` |
+| Multiple errors | Full clean: `rm -rf node_modules && npm cache clean --force && npm install` |
+
+---
+
+## AFTER FIX - CONTINUE TESTING
+
+Once the error is gone:
+
+```bash
+# Terminal 1: Still running Expo
+# Should see "Metro ready"
+
+# On phone: Scan QR code
+# App should load
+
+# Check console for:
+# ✅ API Base resolved: https://pm0-...
+# ✅ Expo Push Token obtained
+```
+
+Then continue with panic flow test:
+1. Device 1: Set timer → wait for zero → auto-triggers panic
+2. Device 2: Receive push notification
+3. Both devices: Check incident in MongoDB
+
+---
+
+**Run the quick fix command above and your app will load!** 🚀
