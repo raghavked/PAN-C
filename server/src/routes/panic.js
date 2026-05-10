@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { PDFDocument } = require('pdf-lib');
 const { getDB } = require('../db');
 const { requireAuth } = require('../middleware/auth');
-const { sendToMany } = require('../services/fcmService');
+const { sendNotification, sendToMany } = require('../services/fcmService');
 
 const router = express.Router();
 
@@ -192,95 +192,159 @@ router.post('/trigger', requireAuth, async (req, res) => {
       : 'Location unavailable';
     const addr = address || locationText;
 
-    // Get user info
+    // ── Get user info from MongoDB ────────────────────────────────────────────
     const user = await db.collection('users').findOne({ email: req.userEmail });
-    const userName = user?.fullName || user?.name || req.userEmail;
+    // Use the exact fullName the user entered during signup — never fall back to email
+    const userName = user?.fullName || user?.name || 'Unknown User';
+    const userPhone = user?.phone || null;
 
-    // Get all contacts for this user
+    // ── Get all contacts for this user ────────────────────────────────────────
     const contacts = await db.collection('contacts')
       .find({ userEmail: req.userEmail })
+      .sort({ isPrimary: -1, createdAt: 1 })
       .toArray();
 
-    const contactsWithTokens = contacts.filter(c => c.fcmToken);
-    const fcmTokens = contactsWithTokens.map(c => c.fcmToken);
+    // Only send FCM to contacts who have the app (fcmToken) AND have push enabled
+    const contactsWithPush = contacts.filter(
+      c => c.fcmToken && (c.notifyVia?.push !== false)
+    );
+    const fcmTokens = contactsWithPush.map(c => c.fcmToken);
 
-    console.log(`[PAN!C] Panic triggered by ${req.userEmail} — ${contacts.length} contacts, ${fcmTokens.length} with FCM tokens`);
+    console.log(
+      `[PAN!C] Panic triggered by ${userName} (${req.userEmail}) — ` +
+      `${contacts.length} contacts total, ${fcmTokens.length} with FCM push enabled`
+    );
 
     // ── Build the base URL for links ──────────────────────────────────────────
     const baseUrl = process.env.API_BASE_URL ||
       `${req.protocol}://${req.get('host')}`;
 
-    // ── Build the Help Page link ──────────────────────────────────────────────
+    // ── Build the Help Page link (populated with real incident data) ──────────
+    const incidentTime = new Date();
     const helpParams = new URLSearchParams({
       name: userName,
       id: incidentId,
-      time: new Date().toISOString(),
-      ...(latitude && { lat: String(latitude) }),
-      ...(longitude && { lng: String(longitude) }),
+      time: incidentTime.toISOString(),
+      ...(latitude  && { lat:  String(Number(latitude).toFixed(6))  }),
+      ...(longitude && { lng: String(Number(longitude).toFixed(6)) }),
+      ...(address   && { address }),
     });
     const helpLink = `${baseUrl}/help?${helpParams.toString()}`;
 
     // ── Build the Document Bundle PDF link ───────────────────────────────────
+    // Only generate if the user actually has documents uploaded
     let docBundleLink = null;
     try {
-      const pdfBuffer = await buildDocumentBundle(db, req.userEmail);
-      if (pdfBuffer) {
-        docBundleLink = await createDocumentBundleLink(db, req.userEmail, pdfBuffer, incidentId, baseUrl);
-        console.log(`[PAN!C] Document bundle created for ${incidentId}`);
+      const docCount = await db.collection('documents').countDocuments({ userEmail: req.userEmail });
+      if (docCount > 0) {
+        const pdfBuffer = await buildDocumentBundle(db, req.userEmail);
+        if (pdfBuffer) {
+          docBundleLink = await createDocumentBundleLink(
+            db, req.userEmail, pdfBuffer, incidentId, baseUrl
+          );
+          console.log(`[PAN!C] Document bundle (${docCount} docs) created for ${incidentId}`);
+        }
+      } else {
+        console.log(`[PAN!C] No documents on file for ${req.userEmail} — skipping bundle`);
       }
     } catch (pdfErr) {
       console.error('[PAN!C] Document bundle error (non-fatal):', pdfErr.message);
     }
 
-    // ── Generate ElevenLabs audio ─────────────────────────────────────────────
+    // ── Generate ElevenLabs audio alert ──────────────────────────────────────
     const audioBase64 = await generateElevenLabsAudio(
-      `HELP! ICE AGENTS! HELP! LA MIGRA! This is an emergency alert from PAN!C. ${userName} needs help. Incident ID: ${incidentId}`
+      `HELP! ICE AGENTS! HELP! LA MIGRA! This is an emergency alert from PAN!C. ` +
+      `${userName} needs help immediately. Incident ID: ${incidentId}`
     );
 
-    // ── Build FCM notification body ───────────────────────────────────────────
+    // ── Build FCM notification — exact message as specified ───────────────────
+    // Title: PAN!C — EMERGENCY ALERT — [User's Full Name]
+    // Body:  [Name] pushed their button that law enforcement authorities are
+    //        putting them in a dangerous situation. Location: lat, lng.
+    //        Please access next steps here: [helpLink]
+    //        [, and their documents they wanted to share to you here: [docLink]]
     const notifTitle = `🚨 PAN!C — EMERGENCY ALERT — ${userName}`;
-    const notifBody = docBundleLink
-      ? `${userName} pushed their button — law enforcement authorities are putting them in a dangerous situation. Location: ${locationText}. Please access next steps here: ${helpLink}, and their documents they wanted to share to you here: ${docBundleLink}`
-      : `${userName} pushed their button — law enforcement authorities are putting them in a dangerous situation. Location: ${locationText}. Please access next steps here: ${helpLink}`;
 
-    // ── Send FCM push notifications ───────────────────────────────────────────
+    // Format location as human-readable coordinates or address
+    const locationDisplay = address
+      ? address
+      : (latitude && longitude
+          ? `${Number(latitude).toFixed(5)}, ${Number(longitude).toFixed(5)}`
+          : 'Location unavailable');
+
+    const notifBody = docBundleLink
+      ? `${userName} pushed their button that law enforcement authorities are putting them in a dangerous situation. Location: ${locationDisplay}. Please access next steps here: ${helpLink}, and their documents they wanted to share to you here: ${docBundleLink}`
+      : `${userName} pushed their button that law enforcement authorities are putting them in a dangerous situation. Location: ${locationDisplay}. Please access next steps here: ${helpLink}`;
+
+    // ── Send FCM push notifications — per-contact, respecting canSeeDocuments ──
+    // Each contact gets a personalized message:
+    //   - contacts with canSeeDocuments: false  → message without doc bundle link
+    //   - all others                            → message with doc bundle link (if any)
     let sentCount = 0;
     let failedCount = 0;
     let failedTokens = [];
 
-    if (fcmTokens.length > 0) {
-      const fcmResult = await sendToMany(
-        fcmTokens,
+    for (const contact of contactsWithPush) {
+      // Determine whether this contact should see the document bundle link
+      const showDocs = docBundleLink && (contact.canSeeDocuments !== false);
+
+      const contactBody = showDocs
+        ? `${userName} pushed their button that law enforcement authorities are putting them in a dangerous situation. Location: ${locationDisplay}. Please access next steps here: ${helpLink}, and their documents they wanted to share to you here: ${docBundleLink}`
+        : `${userName} pushed their button that law enforcement authorities are putting them in a dangerous situation. Location: ${locationDisplay}. Please access next steps here: ${helpLink}`;
+
+      const result = await sendNotification(
+        contact.fcmToken,
         notifTitle,
-        notifBody,
+        contactBody,
         {
           incidentId,
-          userEmail: req.userEmail,
+          userEmail:     req.userEmail,
           userName,
-          address: addr,
-          latitude: String(latitude || ''),
-          longitude: String(longitude || ''),
+          userPhone:     userPhone || '',
+          address:       locationDisplay,
+          latitude:      String(latitude  || ''),
+          longitude:     String(longitude || ''),
           helpLink,
-          docBundleLink: docBundleLink || '',
+          docBundleLink: showDocs ? docBundleLink : '',
+          triggeredAt:   incidentTime.toISOString(),
         }
       );
-      sentCount = fcmResult.sentCount;
-      failedCount = fcmResult.failedCount;
-      failedTokens = fcmResult.failedTokens;
+
+      if (result.success) {
+        sentCount++;
+        console.log(`[PAN!C] FCM sent to ${contact.name} (canSeeDocuments=${contact.canSeeDocuments !== false})`);
+      } else {
+        failedCount++;
+        failedTokens.push(contact.fcmToken);
+        console.warn(`[PAN!C] FCM failed for ${contact.name}: ${result.error}`);
+      }
     }
 
     // ── Build contactsNotified array ──────────────────────────────────────────
-    const contactsNotified = contacts.map(c => ({
-      contactId: c._id,
-      name: c.name,
-      phone: c.phone || null,
-      hasApp: !!c.fcmToken,
-      notifiedAt: new Date(),
-      method: c.fcmToken ? 'fcm_push' : 'no_app',
-      status: c.fcmToken
-        ? (failedTokens.includes(c.fcmToken) ? 'failed' : 'sent')
-        : 'no_app',
-    }));
+    const contactsNotified = contacts.map(c => {
+      const pushEnabled = !!c.fcmToken && (c.notifyVia?.push !== false);
+      let status;
+      if (!c.fcmToken) {
+        status = 'no_app';
+      } else if (c.notifyVia?.push === false) {
+        status = 'push_disabled';
+      } else if (failedTokens.includes(c.fcmToken)) {
+        status = 'failed';
+      } else {
+        status = 'sent';
+      }
+      return {
+        contactId:       c._id,
+        name:            c.name,
+        phone:           c.phone || null,
+        hasApp:          !!c.fcmToken,
+        pushEnabled,
+        canSeeDocuments: c.canSeeDocuments !== false,
+        notifiedAt:      new Date(),
+        method:          pushEnabled ? 'fcm_push' : (c.fcmToken ? 'push_disabled' : 'no_app'),
+        status,
+      };
+    });
 
     // ── Create incident record ────────────────────────────────────────────────
     const incident = {
