@@ -1,115 +1,282 @@
-import React, { CSSProperties } from 'react';
-import { PanicButton } from '../components/panic/PanicButton';
-import { Card } from '../components/cards/Card';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { colors, spacingNum, typography } from '../theme';
+import React, { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { contactsApi, documentsApi, checkinApi, type CheckInSettings } from '../services/api';
+import { colors } from '../theme/colors';
 
-interface HomeScreenProps {
+type Screen = 'home' | 'contacts' | 'documents' | 'checkin' | 'chat' | 'panic';
+
+interface Props {
+  onNavigate: (screen: Screen) => void;
   onPanic: () => void;
-  isPanicActive: boolean;
-  onNavigate: (screen: string) => void;
 }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onPanic, isPanicActive, onNavigate }) => {
-  const contentStyle: CSSProperties = {
-    flex: 1,
-    overflowY: 'auto',
-    paddingLeft: spacingNum.lg,
-    paddingRight: spacingNum.lg,
-    paddingTop: spacingNum.lg,
-    paddingBottom: spacingNum.xxl,
+export default function HomeScreen({ onNavigate, onPanic }: Props) {
+  const { user, logout } = useAuth();
+  const [contactCount, setContactCount] = useState(0);
+  const [docCount, setDocCount] = useState(0);
+  const [checkin, setCheckin] = useState<{ settings: CheckInSettings; minutesRemaining: number; isOverdue: boolean } | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [contacts, docs, ci] = await Promise.all([
+        contactsApi.getAll(),
+        documentsApi.getAll(),
+        checkinApi.getStatus(),
+      ]);
+      setContactCount(contacts.contacts.length);
+      setDocCount(docs.documents.length);
+      setCheckin(ci);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleCheckIn = async () => {
+    try {
+      let location: { latitude: number; longitude: number } | undefined;
+      if (navigator.geolocation) {
+        await new Promise<void>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            pos => { location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }; resolve(); },
+            () => resolve(), { timeout: 3000 }
+          );
+        });
+      }
+      await checkinApi.checkIn(location);
+      const ci = await checkinApi.getStatus();
+      setCheckin(ci);
+    } catch { /* ignore */ }
   };
 
-  const welcomeStyle: CSSProperties = {
-    marginBottom: spacingNum.xxl,
+  const handleSnooze = async () => {
+    try {
+      await checkinApi.snooze(5);
+      const ci = await checkinApi.getStatus();
+      setCheckin(ci);
+    } catch { /* ignore */ }
   };
 
-  const greetingStyle: CSSProperties = {
-    ...typography.headlineMedium,
-    color: colors.onSurface,
-    marginBottom: spacingNum.xs,
-  };
-
-  const lastCheckInStyle: CSSProperties = {
-    ...typography.bodySmall,
-    color: colors.onSurfaceVariant,
-  };
-
-  const cardHeaderStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacingNum.sm,
-  };
-
-  const cardTitleStyle: CSSProperties = {
-    ...typography.headlineSmall,
-    color: colors.onSurface,
-  };
-
-  const cardTextStyle: CSSProperties = {
-    ...typography.bodySmall,
-    color: colors.onSurfaceVariant,
-  };
-
-  const alertBannerStyle: CSSProperties = {
-    backgroundColor: colors.errorContainer,
-    border: `1px solid ${colors.primary}`,
-    borderRadius: 8,
-    padding: spacingNum.lg,
-    marginBottom: spacingNum.lg,
-    display: 'flex',
-    alignItems: 'center',
-    gap: spacingNum.md,
-  };
+  const firstName = user?.fullName?.split(' ')[0] || 'there';
 
   return (
-    <div style={contentStyle}>
-      {isPanicActive && (
-        <div style={alertBannerStyle}>
-          <span style={{ fontSize: 24 }}>🚨</span>
-          <div>
-            <p style={{ ...typography.labelLarge, color: colors.error, marginBottom: 4 }}>
-              EMERGENCY ACTIVE
-            </p>
-            <p style={{ ...typography.bodySmall, color: colors.onErrorContainer }}>
-              Contacts have been notified. Tap the button below to disarm.
-            </p>
+    <div style={styles.container}>
+      {/* Header */}
+      <div style={styles.header}>
+        <div>
+          <div style={styles.welcomeText}>Welcome, {firstName} 👋</div>
+          <div style={styles.appName}>PAN<span style={styles.exclaim}>!</span>C</div>
+        </div>
+        <button style={styles.settingsBtn} onClick={logout} title="Log out">⚙️</button>
+      </div>
+
+      {/* Check-In Banner */}
+      {checkin && (
+        <div style={{
+          ...styles.checkinBanner,
+          borderColor: checkin.isOverdue ? colors.alertRed : colors.border,
+          background: checkin.isOverdue ? 'rgba(226,75,74,0.1)' : colors.surface1,
+        }}>
+          <div style={styles.checkinLeft}>
+            <span style={{ fontSize: 20 }}>{checkin.isOverdue ? '⚠️' : '⏰'}</span>
+            <div>
+              <div style={{ ...styles.checkinTitle, color: checkin.isOverdue ? colors.alertRed : colors.textPrimary }}>
+                {checkin.isOverdue ? 'Check-In Overdue!' : `Check-In: ${checkin.minutesRemaining} min remaining`}
+              </div>
+              <div style={styles.checkinSub}>Every {checkin.settings.intervalMinutes} minutes</div>
+            </div>
+          </div>
+          <div style={styles.checkinBtns}>
+            <button style={styles.snoozeBtn} onClick={handleSnooze}>Snooze 5 min</button>
+            <button style={styles.checkInNowBtn} onClick={handleCheckIn}>Check In Now</button>
           </div>
         </div>
       )}
 
-      <div style={welcomeStyle}>
-        <h2 style={greetingStyle}>Welcome, Alex</h2>
-        <p style={lastCheckInStyle}>Last check-in: 2 hours ago</p>
+      {/* PANIC Button */}
+      <div style={styles.panicSection}>
+        <button style={styles.panicButton} onClick={onPanic}>
+          <span style={styles.panicIcon}>🚨</span>
+          <span style={styles.panicText}>PAN!C</span>
+          <span style={styles.panicIcon}>🚨</span>
+        </button>
+        <div style={styles.panicSubtext}>TAP IF YOU NEED HELP</div>
       </div>
 
-      <PanicButton onPress={onPanic} isActive={isPanicActive} />
+      {/* Quick Nav Grid */}
+      <div style={styles.quickNav}>
+        {[
+          { icon: '📞', label: 'Contacts', count: contactCount, screen: 'contacts' as Screen },
+          { icon: '📄', label: 'Documents', count: docCount, screen: 'documents' as Screen },
+          { icon: '⏰', label: 'Check-In', count: null, screen: 'checkin' as Screen },
+          { icon: '💬', label: 'Chat with PAN!C', count: null, screen: 'chat' as Screen },
+        ].map(item => (
+          <button key={item.screen} style={styles.navCard} onClick={() => onNavigate(item.screen)}>
+            <span style={styles.navIcon}>{item.icon}</span>
+            <span style={styles.navLabel}>{item.label}</span>
+            {item.count !== null && (
+              <span style={styles.navCount}>{item.count} added</span>
+            )}
+          </button>
+        ))}
+      </div>
 
-      <Card onClick={() => onNavigate('documents')}>
-        <div style={cardHeaderStyle}>
-          <span style={cardTitleStyle}>📄 Documents</span>
-          <StatusBadge label="3 Ready" status="success" />
+      {/* Your Info */}
+      <div style={styles.infoCard}>
+        <div style={styles.infoTitle}>Your Info</div>
+        <div style={styles.infoRow}>
+          <span style={{ color: contactCount > 0 ? colors.success : colors.warning }}>
+            {contactCount > 0 ? '✓' : '⚠'} {contactCount} Contact{contactCount !== 1 ? 's' : ''}
+          </span>
+          <span style={{ color: docCount > 0 ? colors.success : colors.warning }}>
+            {docCount > 0 ? '✓' : '⚠'} {docCount} Document{docCount !== 1 ? 's' : ''}
+          </span>
         </div>
-        <p style={cardTextStyle}>✓ Passport &nbsp;|&nbsp; ✓ Visa &nbsp;|&nbsp; ✓ ID</p>
-      </Card>
-
-      <Card onClick={() => onNavigate('contacts')}>
-        <div style={cardHeaderStyle}>
-          <span style={cardTitleStyle}>👥 Contacts</span>
-          <StatusBadge label="4 Added" status="success" />
-        </div>
-        <p style={cardTextStyle}>🔔 Check-in timer: 30 minutes</p>
-      </Card>
-
-      <Card>
-        <div style={cardHeaderStyle}>
-          <span style={cardTitleStyle}>⚙️ Safe Phrase</span>
-          <StatusBadge label="Set" status="success" />
-        </div>
-        <p style={cardTextStyle}>Your disarm phrase is configured and ready</p>
-      </Card>
+        <button style={styles.editProfileBtn} onClick={() => onNavigate('contacts')}>
+          Edit Profile →
+        </button>
+      </div>
     </div>
   );
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  container: {
+    minHeight: '100vh',
+    background: colors.base,
+    paddingBottom: 80,
+    fontFamily: '"Atkinson Hyperlegible Next", "Atkinson Hyperlegible", sans-serif',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: '20px 16px 16px',
+    borderBottom: `1px solid ${colors.border}`,
+  },
+  welcomeText: { fontSize: 14, color: colors.textSecondary, marginBottom: 2 },
+  appName: { fontSize: 28, fontWeight: 800, color: colors.textPrimary, letterSpacing: '-1px' },
+  exclaim: { color: colors.alertRed },
+  settingsBtn: { background: 'transparent', border: 'none', fontSize: 22, cursor: 'pointer', padding: 4 },
+  checkinBanner: {
+    margin: '12px 16px',
+    padding: '12px 14px',
+    borderRadius: 12,
+    border: '1px solid',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap' as const,
+  },
+  checkinLeft: { display: 'flex', alignItems: 'center', gap: 10 },
+  checkinTitle: { fontSize: 14, fontWeight: 700 },
+  checkinSub: { fontSize: 12, color: colors.textMuted },
+  checkinBtns: { display: 'flex', gap: 8 },
+  snoozeBtn: {
+    background: colors.surface2,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 6,
+    color: colors.textSecondary,
+    fontSize: 12,
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  checkInNowBtn: {
+    background: colors.alertRed,
+    border: 'none',
+    borderRadius: 6,
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 700,
+    padding: '6px 10px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
+  panicSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '28px 16px 20px',
+  },
+  panicButton: {
+    width: 200,
+    height: 200,
+    borderRadius: '50%',
+    background: colors.alertRed,
+    border: `4px solid ${colors.alertRedLight}`,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: `0 0 0 8px rgba(226,75,74,0.2), 0 0 0 16px rgba(226,75,74,0.1)`,
+    gap: 4,
+    fontFamily: 'inherit',
+  },
+  panicIcon: { fontSize: 28 },
+  panicText: { fontSize: 32, fontWeight: 800, color: '#fff', letterSpacing: '-1px', lineHeight: 1 },
+  panicSubtext: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.textSecondary,
+    letterSpacing: '0.15em',
+    textTransform: 'uppercase',
+    marginTop: 12,
+  },
+  quickNav: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 12,
+    padding: '0 16px',
+    marginBottom: 16,
+  },
+  navCard: {
+    background: colors.surface1,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 12,
+    padding: '16px 14px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    cursor: 'pointer',
+    gap: 4,
+    fontFamily: 'inherit',
+  },
+  navIcon: { fontSize: 24 },
+  navLabel: { fontSize: 14, fontWeight: 700, color: colors.textPrimary },
+  navCount: {
+    fontSize: 12,
+    color: colors.textMuted,
+    background: colors.surface2,
+    borderRadius: 20,
+    padding: '2px 8px',
+    marginTop: 2,
+  },
+  infoCard: {
+    margin: '0 16px',
+    background: colors.surface1,
+    border: `1px solid ${colors.border}`,
+    borderRadius: 12,
+    padding: 16,
+  },
+  infoTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: colors.textSecondary,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  infoRow: { display: 'flex', gap: 16, fontSize: 14, fontWeight: 600, marginBottom: 12 },
+  editProfileBtn: {
+    background: 'transparent',
+    border: `1px solid ${colors.border}`,
+    borderRadius: 6,
+    color: colors.textSecondary,
+    fontSize: 13,
+    padding: '6px 12px',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+  },
 };
