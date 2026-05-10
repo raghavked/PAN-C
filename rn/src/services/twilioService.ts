@@ -112,6 +112,6 @@ export const twilioService = {
   },
 
   async sendTestSMS(toPhone: string): Promise<SMSResult> {
-    return sendSMS(toPhone, '✅ PAN-C test message — your Twilio integration is working correctly.');
+    return sendSMS(toPhone, '✅ PAN!C test message — your Twilio integration is working correctly.');
   },
 };

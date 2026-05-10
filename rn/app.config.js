@@ -1,6 +1,6 @@
 module.exports = {
   expo: {
-    name: 'PAN-C',
+    name: 'PAN!C',
     slug: 'pan-c',
     version: '1.0.0',
     orientation: 'portrait',
@@ -25,7 +25,7 @@ module.exports = {
         'expo-location',
         {
           locationAlwaysAndWhenInUsePermission:
-            'PAN-C needs your location to share with emergency contacts when the panic button is pressed.',
+            'PAN!C needs your location to share with emergency contacts when the panic button is pressed.',
         },
       ],
       [

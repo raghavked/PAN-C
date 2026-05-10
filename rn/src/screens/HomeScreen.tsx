@@ -20,7 +20,7 @@ export const HomeScreen: React.FC = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.appName}>PAN-C</Text>
+          <Text style={styles.appName}>PAN!C</Text>
           <StatusBadge status={isActive ? 'active' : 'safe'} label={isActive ? 'ALERT ACTIVE' : 'SAFE'} />
         </View>
 

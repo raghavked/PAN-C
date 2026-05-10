@@ -33,7 +33,7 @@ export const solanaService = {
 
   buildIncidentMemo(entry: IncidentLogEntry): string {
     return JSON.stringify({
-      app: 'PAN-C',
+      app: 'PAN!C',
       v: '1.0',
       id: entry.incidentId,
       uid: entry.userId,
@@ -50,7 +50,7 @@ export const solanaService = {
 
   getDonationUrl(amountSol = 0.1): string {
     if (!FUND_WALLET) return '';
-    const label = encodeURIComponent('PAN-C Legal Aid Fund');
+    const label = encodeURIComponent('PAN!C Legal Aid Fund');
     const message = encodeURIComponent('Supporting immigrant communities');
     return `solana:${FUND_WALLET}?amount=${amountSol}&label=${label}&message=${message}`;
   },
