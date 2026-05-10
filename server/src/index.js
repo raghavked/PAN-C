@@ -1,6 +1,8 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
+const helmet = require('helmet');
 const path = require('path');
 const { connectDB } = require('./db');
 
@@ -18,9 +20,22 @@ let mongoConnected = false;
 
 let dbConnected = false;
 
+// ── Security & performance middleware ────────────────────────────────────────
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.use(compression()); // gzip all responses — reduces payload by 60-80%
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ── Request timing header ─────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    if (ms > 1000) console.warn(`[SLOW] ${req.method} ${req.path} took ${ms}ms`);
+  });
+  next();
+});
 
 // ── Serve static public assets ────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../public')));

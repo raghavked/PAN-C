@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { ObjectId } = require('mongodb');
 const { getDB } = require('../db');
 
 async function requireAuth(req, res, next) {
@@ -11,10 +12,24 @@ async function requireAuth(req, res, next) {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRETS || process.env.JWT_SECRET);
 
-    // Look up user to attach to request (JWT signature + expiry is sufficient auth)
+    // JWT payload contains { email, userId } — look up by email (most reliable)
+    // Fall back to _id lookup if email is missing (legacy tokens)
     const db = getDB();
+    let query;
+    if (decoded.email) {
+      query = { email: decoded.email };
+    } else if (decoded.userId) {
+      try {
+        query = { _id: new ObjectId(decoded.userId) };
+      } catch {
+        return res.status(401).json({ error: 'Token invalid or expired' });
+      }
+    } else {
+      return res.status(401).json({ error: 'Token invalid or expired' });
+    }
+
     const user = await db.collection('users').findOne(
-      { email: decoded.userId },
+      query,
       { projection: { password: 0 } }
     );
 

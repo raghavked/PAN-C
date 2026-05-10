@@ -1,12 +1,36 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 const http = require('http');
+const os = require('os');
 
 const config = getDefaultConfig(__dirname);
 
+// ── Performance: use all available CPU cores for bundling ─────────────────────
+config.maxWorkers = Math.max(os.cpus().length - 1, 1);
+
+// ── Performance: enable persistent cache for faster subsequent loads ──────────
+config.cacheStores = undefined; // use Metro's default disk cache (FileStore)
+config.resetCache = false;
+
+// ── Performance: inline requires — lazy-load modules on first use ─────────────
+// This dramatically reduces startup time by not executing all imports upfront
+config.transformer = {
+  ...config.transformer,
+  inlineRequires: true,
+  minifierConfig: {
+    keep_classnames: false,
+    keep_fnames: false,
+    mangle: { toplevel: false },
+    output: { ascii_only: true, quote_style: 3, wrap_iife: true },
+    sourceMap: { includeSources: false },
+    toplevel: false,
+    compress: {
+      reduce_funcs: false,
+    },
+  },
+};
+
 // ── Web stubs for native-only modules ─────────────────────────────────────────
-// Some expo-modules-core internals (worklets, etc.) have no web implementation.
-// On web we redirect them to empty stubs so the bundle doesn't crash.
 const WEB_STUBS = {
   [path.resolve(__dirname, 'node_modules/expo-modules-core/src/worklets')]:
     path.resolve(__dirname, 'stubs/expo-worklets.web.js'),
@@ -18,12 +42,10 @@ const originalResolver = config.resolver?.resolveRequest;
 config.resolver = config.resolver || {};
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (platform === 'web') {
-    // Absolute path stubs
     const absCandidate = path.resolve(path.dirname(context.originModulePath), moduleName);
     if (WEB_STUBS[absCandidate]) {
       return { type: 'sourceFile', filePath: WEB_STUBS[absCandidate] };
     }
-    // Module name stubs (bare specifiers)
     if (moduleName === './worklets' &&
         context.originModulePath.includes('expo-modules-core')) {
       return { type: 'sourceFile', filePath: path.resolve(__dirname, 'stubs/expo-worklets.web.js') };
