@@ -158,12 +158,23 @@ router.get('/bundle/:token', async (req, res) => {
     });
 
     if (!bundle) {
-      return res.status(404).send(`
-        <html><body style="background:#0D0D0D;color:#F5F5F5;font-family:sans-serif;padding:40px;text-align:center">
-          <h2 style="color:#E24B4A">Link Expired or Not Found</h2>
-          <p>This document bundle link has expired (72-hour limit) or is invalid.</p>
-        </body></html>
-      `);
+      return res.status(404).send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>PAN!C — Link Expired</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet"/>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{background:#000;color:#f0f0f0;font-family:'Atkinson Hyperlegible',sans-serif;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#0a0a0a;border-bottom:1px solid #222;padding:12px 20px;display:flex;align-items:center;gap:12px}
+.logo{color:#E24B4A;font-size:22px;font-weight:700}.sub{color:#888;font-size:13px}
+.main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center}
+.icon{font-size:64px;margin-bottom:16px}.title{font-size:24px;font-weight:700;color:#E24B4A;margin-bottom:12px}
+.msg{color:#888;font-size:16px;max-width:400px;line-height:1.6}
+.footer{text-align:center;padding:20px;color:#444;font-size:12px;border-top:1px solid #111}</style></head>
+<body>
+<div class="topbar"><span class="logo">🚨 PAN!C</span><span class="sub">Emergency Document Bundle</span></div>
+<div class="main"><div class="icon">🔒</div><h2 class="title">Link Expired or Not Found</h2>
+<p class="msg">This emergency document bundle link has expired (72-hour limit) or is invalid. Please contact the person who shared it with you for a new link.</p></div>
+<div class="footer">PAN!C — Personal Alert Network + Interactive Crisis Communication</div>
+</body></html>`);
     }
 
     // Increment download count

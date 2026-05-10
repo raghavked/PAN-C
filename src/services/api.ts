@@ -62,12 +62,23 @@ export const contactsApi = {
 // Documents
 export const documentsApi = {
   getAll: () => request<{ documents: Document[] }>('GET', '/documents'),
-  upload: (data: { type: string; fileName: string; fileDataBase64: string; mimeType: string; expiresAt?: string }) =>
-    request<{ document: Document }>('POST', '/documents', data),
+  // Multipart upload is handled directly via XHR in DocumentsScreen for progress tracking
+  // Legacy base64 upload (used by mobile/RN)
+  uploadBase64: (data: { type: string; fileName: string; fileDataBase64: string; mimeType: string; expiresAt?: string }) =>
+    request<{ document: Document }>('POST', '/documents/base64', data),
   update: (id: string, data: Partial<Document>) =>
     request<{ message: string }>('PUT', `/documents/${id}`, data),
   delete: (id: string) => request<{ message: string }>('DELETE', `/documents/${id}`),
-  share: (id: string) => request<{ shareableLink: string; shareUrl: string; expiresAt: string }>('POST', `/documents/${id}/share`),
+  // Generate a private share link; expiresInHours defaults to 72 on the server
+  share: (id: string, expiresInHours = 72) =>
+    request<{ shareableLink: string; shareUrl: string; expiresAt: string }>(
+      'POST', `/documents/${id}/share`, { expiresInHours }
+    ),
+  // Revoke an existing share link
+  revokeShare: (id: string) =>
+    request<{ message: string }>('DELETE', `/documents/${id}/share`),
+  // Authenticated inline view URL (used in img src / iframe src after fetch + createObjectURL)
+  viewUrl: (id: string) => `${BASE_URL}/documents/${id}/view`,
   downloadUrl: (id: string) => `${BASE_URL}/documents/${id}/download`,
 };
 
