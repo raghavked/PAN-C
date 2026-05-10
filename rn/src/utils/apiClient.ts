@@ -29,8 +29,8 @@ function resolveApiBase(): string {
     if (hostUri) {
       // Strip any path component, keep only host[:port]
       const host = hostUri.split('/')[0];
-      // exp.direct tunnel — use https
-      if (host.includes('exp.direct')) {
+      // exp.direct or ngrok tunnel — use https
+      if (host.includes('exp.direct') || host.includes('ngrok')) {
         return `https://${host}`;
       }
       // LAN — use http
