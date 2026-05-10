@@ -29,6 +29,9 @@ async function requireAuth(req, res, next) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Token invalid or expired' });
     }
+    if (err.message === 'Database not connected') {
+      return res.status(503).json({ error: 'Service temporarily unavailable. Please try again.' });
+    }
     next(err);
   }
 }

@@ -83,3 +83,8 @@ waitForPort = 3001
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[userenv]
+
+[userenv.shared]
+DOCUMENT_ENCRYPTION_KEY = "505d68f19705b2c9534d2830dab38012c731908991856d1bfb63b8335b1d8418"

@@ -6,13 +6,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { colors, spacing, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
 
-const SAFE_PHRASE = 'I AM SAFE';
-
-const STATUS_ITEMS = [
-  { icon: 'security' as const, label: 'Primary Responder Hub', sub: 'ID: 994-Alpha', status: 'NOTIFIED', sent: true },
-  { icon: 'person' as const, label: 'Emergency Contact 1', sub: 'Sarah Connor', status: 'SMS SENT', sent: true },
-  { icon: 'videocam' as const, label: 'Live Video Feed', sub: 'Establishing Connection…', status: 'PENDING', sent: false },
-];
 
 export const PanicActiveScreen: React.FC = () => {
   const { isActive, incidentId, contactsNotified, timer, checkIn, disarmPanic, rightsReminder } = usePanic();
@@ -34,12 +27,15 @@ export const PanicActiveScreen: React.FC = () => {
   }, [isActive]);
 
   const handleDisarm = async () => {
-    if (phrase.toUpperCase().trim() !== SAFE_PHRASE) {
-      setDisarmError(`Type "${SAFE_PHRASE}" to disarm.`);
+    if (!phrase.trim()) {
+      setDisarmError('Please enter your safe phrase.');
       return;
     }
     setDisarming(true);
-    await disarmPanic(phrase);
+    const success = await disarmPanic(phrase.trim());
+    if (!success) {
+      setDisarmError('Incorrect safe phrase. Try again.');
+    }
     setPhrase('');
     setDisarming(false);
   };
@@ -107,23 +103,40 @@ export const PanicActiveScreen: React.FC = () => {
             <MaterialIcons name="sensors" size={18} color={colors.textPrimary} />
             <Text style={s.dispatchTitle}>DISPATCH STATUS</Text>
           </View>
-          {STATUS_ITEMS.map((item, i) => (
-            <View key={i} style={s.dispatchRow}>
-              <View style={s.dispatchAvatar}>
-                <MaterialIcons name={item.icon} size={18} color={colors.textSecondary} />
-              </View>
-              <View style={s.dispatchInfo}>
-                <Text style={s.dispatchName}>{item.label}</Text>
-                <Text style={s.dispatchSub}>{item.sub}</Text>
-                <View style={[s.statusBadge, item.sent ? s.badgeSent : s.badgePending]}>
-                  {item.sent && <MaterialIcons name="check-circle" size={11} color={colors.primary} />}
-                  <Text style={[s.statusBadgeText, item.sent ? s.badgeSentText : s.badgePendingText]}>
-                    {item.status}
-                  </Text>
-                </View>
+          <View style={s.dispatchRow}>
+            <View style={s.dispatchAvatar}>
+              <MaterialIcons name="group" size={18} color={colors.textSecondary} />
+            </View>
+            <View style={s.dispatchInfo}>
+              <Text style={s.dispatchName}>Emergency Contacts</Text>
+              <Text style={s.dispatchSub}>
+                {contactsNotified > 0
+                  ? `${contactsNotified} contact${contactsNotified !== 1 ? 's' : ''} reached via push notification`
+                  : 'No contacts with app installed'}
+              </Text>
+              <View style={[s.statusBadge, contactsNotified > 0 ? s.badgeSent : s.badgePending]}>
+                {contactsNotified > 0 && <MaterialIcons name="check-circle" size={11} color={colors.primary} />}
+                <Text style={[s.statusBadgeText, contactsNotified > 0 ? s.badgeSentText : s.badgePendingText]}>
+                  {contactsNotified > 0 ? 'NOTIFIED' : 'NO APP'}
+                </Text>
               </View>
             </View>
-          ))}
+          </View>
+          <View style={s.dispatchRow}>
+            <View style={s.dispatchAvatar}>
+              <MaterialIcons name="article" size={18} color={colors.textSecondary} />
+            </View>
+            <View style={s.dispatchInfo}>
+              <Text style={s.dispatchName}>Incident Record</Text>
+              <Text style={s.dispatchSub}>{incidentId || 'Generating…'}</Text>
+              <View style={[s.statusBadge, incidentId && incidentId !== 'TRIGGERING...' ? s.badgeSent : s.badgePending]}>
+                {incidentId && incidentId !== 'TRIGGERING...' && <MaterialIcons name="check-circle" size={11} color={colors.primary} />}
+                <Text style={[s.statusBadgeText, incidentId && incidentId !== 'TRIGGERING...' ? s.badgeSentText : s.badgePendingText]}>
+                  {incidentId && incidentId !== 'TRIGGERING...' ? 'LOGGED' : 'PENDING'}
+                </Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {!!rightsReminder && (
@@ -137,19 +150,19 @@ export const PanicActiveScreen: React.FC = () => {
         )}
 
         <View style={s.disarmCard}>
-          <Text style={s.disarmHint}>ENTER PIN TO CANCEL ALERT</Text>
+          <Text style={s.disarmHint}>ENTER SAFE PHRASE TO CANCEL ALERT</Text>
           <View style={s.pinDots}>
-            {[0, 1, 2, 3].map((i) => (
+            {Array.from({ length: Math.min(phrase.length || 1, 12) }).map((_, i) => (
               <View key={i} style={[s.pinDot, i < phrase.length && s.pinDotFilled]} />
             ))}
           </View>
           <TextInput
             style={[s.disarmInput, !!disarmError && s.disarmInputError]}
-            placeholder={`Type "${SAFE_PHRASE}"`}
+            placeholder="Type your safe phrase"
             placeholderTextColor={colors.textMuted}
             value={phrase}
             onChangeText={(t) => { setPhrase(t); setDisarmError(''); }}
-            autoCapitalize="characters"
+            autoCapitalize="none"
           />
           {!!disarmError && <Text style={s.errorText}>{disarmError}</Text>}
           <Pressable
