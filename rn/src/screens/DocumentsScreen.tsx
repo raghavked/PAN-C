@@ -191,16 +191,9 @@ export const DocumentsScreen: React.FC = () => {
   const handleView = async (doc: VaultDoc) => {
     // Generate a fresh share link (24h) and open it in the system browser
     try {
-      const token = storage.getItem('panc_auth_token');
-      const res = await fetch(`/api/documents/${doc._id}/share`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ expiresInHours: 24 }),
-      });
-      const data = await res.json();
+      const data = await apiRequest<{ shareUrl: string }>(
+        `/documents/${doc._id}/share`, 'POST', { expiresInHours: 24 }
+      );
       if (data.shareUrl) {
         await Linking.openURL(data.shareUrl);
         await fetchDocs();

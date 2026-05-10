@@ -35,7 +35,6 @@ module.exports = {
         },
       ],
       'expo-secure-store',
-      'expo-clipboard',
     ],
     web: {
       bundler: 'metro',

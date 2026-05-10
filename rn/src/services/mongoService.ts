@@ -1,14 +1,9 @@
 /**
  * mongoService.ts
- * Calls your backend REST API which uses the MongoDB Node.js driver server-side.
- * MONGODB_URI and MONGODB_DATABASE are server-side only — never in the app bundle.
- *
- * Required env var (mobile app):
- *   EXPO_PUBLIC_API_URL — URL of your backend, e.g. https://pan-c-api.railway.app/api
- *   (Falls back to localhost:3000 for local development)
+ * Delegates to the shared apiClient which resolves the correct backend URL
+ * for tunnel / LAN / production automatically.
  */
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+import { apiRequest as coreRequest } from '../utils/apiClient';
 
 interface MongoDocument {
   [key: string]: unknown;
@@ -16,14 +11,7 @@ interface MongoDocument {
 
 async function apiRequest(path: string, method: string, body?: MongoDocument) {
   try {
-    const res = await fetch(`${API_URL}${path}`, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!res.ok) throw new Error(`API ${method} ${path} failed: ${res.status}`);
-    return res.json();
+    return await coreRequest(path, method, body);
   } catch (e) {
     console.warn(`[mongoService] ${method} ${path} failed (stub mode):`, e);
     return { document: null, documents: [], insertedId: 'stub-id' };
