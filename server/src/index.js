@@ -1,6 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { connectDB } = require('./db');
 
 const authRoutes = require('./routes/auth');
@@ -12,6 +13,7 @@ const chatRoutes = require('./routes/chat');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+let mongoConnected = false;
 
 let dbConnected = false;
 
@@ -19,8 +21,11 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', app: 'PAN!C', version: '1.0.0', db: dbConnected ? 'connected' : 'disconnected' });
+
+
 });
 
 app.use('/api/auth', authRoutes);
@@ -38,6 +43,7 @@ app.use((err, req, res, next) => {
   console.error('[PAN!C Error]', err);
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
+
 
 // Start server immediately — connect to MongoDB in background with retries
 app.listen(PORT, () => {
@@ -68,3 +74,5 @@ async function connectWithRetry(attempt = 1, maxAttempts = 10) {
     }
   }
 }
+
+

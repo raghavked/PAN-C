@@ -6,6 +6,7 @@ let initFailed = false;
 function initializeFirebase() {
   if (firebaseInitialized || initFailed || admin.apps.length) return;
 
+
   const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -13,6 +14,8 @@ function initializeFirebase() {
   if (!privateKey || !projectId || !clientEmail) {
     console.warn('⚠️  Firebase FCM not configured (missing env vars) — push notifications disabled');
     initFailed = true;
+
+
     return;
   }
 
@@ -21,6 +24,7 @@ function initializeFirebase() {
       type: 'service_account',
       project_id: projectId,
       private_key: privateKey,
+
       client_email: clientEmail,
       client_id: '',
       auth_uri: 'https://accounts.google.com/o/oauth2/auth',
@@ -34,9 +38,11 @@ function initializeFirebase() {
     firebaseInitialized = true;
     console.log('✅ Firebase Cloud Messaging initialized');
   } catch (err) {
+
     console.warn('⚠️  Firebase FCM initialization failed:', err.message);
     console.warn('   Push notifications will be disabled. Check FIREBASE_PRIVATE_KEY format.');
     initFailed = true;
+
   }
 }
 
