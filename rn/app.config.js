@@ -43,10 +43,14 @@ module.exports = {
     owner: process.env.EXPO_OWNER || undefined,
     extra: {
       eas: {
-        projectId: process.env.EXPO_PROJECT_ID || '',
+        projectId: process.env.EXPO_PROJECT_ID
+          || process.env.EXPO_PUBLIC_EXPO_PROJECT_ID
+          || '09426b1a-d42b-456b-a6e3-8af1ba2e3632',
       },
       // Expo project ID (also stored in eas.projectId above for getExpoPushTokenAsync)
-      expoProjectId: process.env.EXPO_PROJECT_ID || '',
+      expoProjectId: process.env.EXPO_PROJECT_ID
+        || process.env.EXPO_PUBLIC_EXPO_PROJECT_ID
+        || '09426b1a-d42b-456b-a6e3-8af1ba2e3632',
 
       // API base URL — leave blank to use Metro proxy (/api → localhost:3001)
       apiUrl: process.env.EXPO_PUBLIC_API_URL || '',
