@@ -10,6 +10,7 @@ const documentsRoutes = require('./routes/documents');
 const checkinRoutes = require('./routes/checkin');
 const panicRoutes = require('./routes/panic');
 const chatRoutes = require('./routes/chat');
+const userRoutes = require('./routes/user');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,6 +38,7 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/checkin', checkinRoutes);
 app.use('/api/panic', panicRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/user', userRoutes);
 
 // ── GET /doc/:link — Public shareable document viewer page ───────────────────────
 // Renders a branded HTML page that displays the document inline

@@ -34,14 +34,18 @@ module.exports = {
           microphonePermission: false,
         },
       ],
-      'expo-secure-store',
-      'expo-clipboard',
     ],
     web: {
       bundler: 'metro',
     },
     newArchEnabled: false,
     extra: {
+      eas: {
+        projectId: process.env.EXPO_PROJECT_ID || '',
+      },
+      // Expo project ID (also stored in eas.projectId above for getExpoPushTokenAsync)
+      expoProjectId: process.env.EXPO_PROJECT_ID || '',
+
       // API base URL — leave blank to use Metro proxy (/api → localhost:3001)
       apiUrl: process.env.EXPO_PUBLIC_API_URL || '',
 

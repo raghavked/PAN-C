@@ -7,6 +7,7 @@ const { PDFDocument } = require('pdf-lib');
 const { getDB } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendNotification, sendToMany } = require('../services/fcmService');
+const { sendExpoPushNotification } = require('../services/expoService');
 
 const router = express.Router();
 
@@ -222,13 +223,14 @@ router.post('/trigger', requireAuth, async (req, res) => {
       ...(contactEmails.length ? [{ email: { $in: contactEmails } }] : []),
       ...(contactPhones.length ? [{ phone: { $in: contactPhones } }] : []),
     ];
-    const userTokenMap = {};   // email/phone → fcmToken  (push-capable)
-    const userAccountMap = {}; // email/phone → user doc   (has account, may or may not have FCM)
+    const userTokenMap = {};     // email/phone → fcmToken  (Firebase push)
+    const userPushTokenMap = {}; // email/phone → pushToken (Expo push)
+    const userAccountMap = {};   // email/phone → user doc   (has account)
     if (lookupConditions.length) {
-      // Fetch ALL contacts with a PAN!C account — regardless of FCM token
+      // Fetch ALL contacts with a PAN!C account — regardless of push token
       const allAccountUsers = await db.collection('users').find(
         { $or: lookupConditions },
-        { projection: { email: 1, phone: 1, fcmToken: 1 } }
+        { projection: { email: 1, phone: 1, fcmToken: 1, pushToken: 1 } }
       ).toArray();
       allAccountUsers.forEach(u => {
         if (u.email) userAccountMap[u.email.toLowerCase()] = u;
@@ -237,20 +239,28 @@ router.post('/trigger', requireAuth, async (req, res) => {
           if (u.email) userTokenMap[u.email.toLowerCase()] = u.fcmToken;
           if (u.phone) userTokenMap[u.phone] = u.fcmToken;
         }
+        if (u.pushToken) {
+          if (u.email) userPushTokenMap[u.email.toLowerCase()] = u.pushToken;
+          if (u.phone) userPushTokenMap[u.phone] = u.pushToken;
+        }
       });
     }
 
-    // Resolve each contact's FCM token: user-registered token takes priority over contact-stored token
+    // Resolve each contact's tokens: Expo pushToken preferred, FCM fcmToken as fallback
     const resolvedContacts = contacts.map(c => ({
       ...c,
       resolvedFcmToken:
         (c.email && userTokenMap[c.email.toLowerCase()]) ||
         (c.phone && userTokenMap[c.phone]) ||
         c.fcmToken || null,
+      resolvedPushToken:
+        (c.email && userPushTokenMap[c.email.toLowerCase()]) ||
+        (c.phone && userPushTokenMap[c.phone]) ||
+        c.pushToken || null,
     }));
 
-    const contactsWithPush = resolvedContacts.filter(c => c.resolvedFcmToken);
-    const fcmTokens = contactsWithPush.map(c => c.resolvedFcmToken);
+    const contactsWithPush = resolvedContacts.filter(c => c.resolvedPushToken || c.resolvedFcmToken);
+    const fcmTokens = contactsWithPush.map(c => c.resolvedPushToken || c.resolvedFcmToken);
 
     console.log(
       `[PAN!C] Panic triggered by ${userName} (${req.userEmail}) — ` +
@@ -334,38 +344,58 @@ router.post('/trigger', requireAuth, async (req, res) => {
         ? `${userName} pushed their button that law enforcement authorities are putting them in a dangerous situation. Location: ${locationDisplay}. Please access next steps here: ${helpLink}, and their documents they wanted to share to you here: ${docBundleLink}`
         : `${userName} pushed their button that law enforcement authorities are putting them in a dangerous situation. Location: ${locationDisplay}. Please access next steps here: ${helpLink}`;
 
-      const result = await sendNotification(
-        contact.resolvedFcmToken,
-        notifTitle,
-        contactBody,
-        {
-          incidentId,
-          userEmail:     req.userEmail,
-          userName,
-          userPhone:     userPhone || '',
-          address:       locationDisplay,
-          latitude:      String(latitude  || ''),
-          longitude:     String(longitude || ''),
-          helpLink,
-          docBundleLink: showDocs ? docBundleLink : '',
-          triggeredAt:   incidentTime.toISOString(),
-        }
-      );
+      const notifData = {
+        incidentId,
+        userEmail:     req.userEmail,
+        userName,
+        userPhone:     userPhone || '',
+        address:       locationDisplay,
+        latitude:      String(latitude  || ''),
+        longitude:     String(longitude || ''),
+        helpLink,
+        docBundleLink: showDocs ? docBundleLink : '',
+        triggeredAt:   incidentTime.toISOString(),
+      };
 
-      if (result.success) {
-        sentCount++;
-        console.log(`[PAN!C] FCM sent to ${contact.name} (canSeeDocuments=${contact.canSeeDocuments !== false})`);
-      } else {
-        failedCount++;
-        failedTokens.push(contact.resolvedFcmToken);
-        console.warn(`[PAN!C] FCM failed for ${contact.name}: ${result.error}`);
+      let result;
+      if (contact.resolvedPushToken) {
+        // Prefer Expo Push (ExponentPushToken — works with Expo Go)
+        result = await sendExpoPushNotification(contact.resolvedPushToken, notifTitle, contactBody, notifData);
+        if (result.success) {
+          sentCount++;
+          console.log(`[PAN!C] Expo Push sent to ${contact.name}`);
+        } else {
+          // Fall back to FCM if Expo fails and FCM token exists
+          if (contact.resolvedFcmToken) {
+            result = await sendNotification(contact.resolvedFcmToken, notifTitle, contactBody, notifData);
+          }
+          if (result.success) {
+            sentCount++;
+            console.log(`[PAN!C] FCM fallback sent to ${contact.name}`);
+          } else {
+            failedCount++;
+            failedTokens.push(contact.resolvedPushToken);
+            console.warn(`[PAN!C] All push failed for ${contact.name}: ${result.error}`);
+          }
+        }
+      } else if (contact.resolvedFcmToken) {
+        // FCM only
+        result = await sendNotification(contact.resolvedFcmToken, notifTitle, contactBody, notifData);
+        if (result.success) {
+          sentCount++;
+          console.log(`[PAN!C] FCM sent to ${contact.name}`);
+        } else {
+          failedCount++;
+          failedTokens.push(contact.resolvedFcmToken);
+          console.warn(`[PAN!C] FCM failed for ${contact.name}: ${result.error}`);
+        }
       }
     }
 
     // ── Store pending in-app alerts for contacts with accounts but no FCM ────
     let pendingAlertCount = 0;
     for (const contact of resolvedContacts) {
-      if (contact.resolvedFcmToken) continue; // already handled via FCM push
+      if (contact.resolvedPushToken || contact.resolvedFcmToken) continue; // already handled via push
       const accountUser =
         (contact.email && userAccountMap[contact.email.toLowerCase()]) ||
         (contact.phone && userAccountMap[contact.phone]);
@@ -395,20 +425,22 @@ router.post('/trigger', requireAuth, async (req, res) => {
 
     // ── Build contactsNotified array ──────────────────────────────────────────
     const contactsNotified = resolvedContacts.map(c => {
-      const pushEnabled = !!c.resolvedFcmToken;
+      const pushEnabled = !!(c.resolvedPushToken || c.resolvedFcmToken);
+      const primaryToken = c.resolvedPushToken || c.resolvedFcmToken;
       const accountUser =
         (c.email && userAccountMap[c.email.toLowerCase()]) ||
         (c.phone && userAccountMap[c.phone]);
       let status;
-      if (pushEnabled && !failedTokens.includes(c.resolvedFcmToken)) {
+      if (pushEnabled && !failedTokens.includes(primaryToken)) {
         status = 'sent';
-      } else if (pushEnabled && failedTokens.includes(c.resolvedFcmToken)) {
+      } else if (pushEnabled && failedTokens.includes(primaryToken)) {
         status = 'failed';
       } else if (accountUser) {
         status = 'pending_in_app';
       } else {
         status = 'no_account';
       }
+      const pushMethod = c.resolvedPushToken ? 'expo_push' : c.resolvedFcmToken ? 'fcm_push' : null;
       return {
         contactId:       c._id,
         name:            c.name,
@@ -418,7 +450,7 @@ router.post('/trigger', requireAuth, async (req, res) => {
         pushEnabled,
         canSeeDocuments: c.canSeeDocuments !== false,
         notifiedAt:      new Date(),
-        method:          pushEnabled ? 'fcm_push' : accountUser ? 'pending_in_app' : 'no_account',
+        method:          pushEnabled ? pushMethod : accountUser ? 'pending_in_app' : 'no_account',
         status,
       };
     });
@@ -513,39 +545,52 @@ router.post('/disarm', requireAuth, async (req, res) => {
       .find({ userEmail: req.userEmail })
       .toArray();
 
-    // Cross-reference contact email/phone with registered FCM tokens in users collection
+    // Cross-reference contact email/phone with registered push tokens in users collection
     const disarmEmails = contacts.filter(c => c.email).map(c => c.email.toLowerCase());
     const disarmPhones = contacts.filter(c => c.phone).map(c => c.phone);
     const disarmConditions = [
       ...(disarmEmails.length ? [{ email: { $in: disarmEmails } }] : []),
       ...(disarmPhones.length ? [{ phone: { $in: disarmPhones } }] : []),
     ];
-    const disarmTokenMap = {};
+    const disarmTokenMap = {};     // email/phone → fcmToken
+    const disarmPushTokenMap = {}; // email/phone → pushToken (Expo)
     if (disarmConditions.length) {
       const disarmUsers = await db.collection('users').find(
-        { $or: disarmConditions, fcmToken: { $exists: true, $ne: null } },
-        { projection: { email: 1, phone: 1, fcmToken: 1 } }
+        { $or: disarmConditions },
+        { projection: { email: 1, phone: 1, fcmToken: 1, pushToken: 1 } }
       ).toArray();
       disarmUsers.forEach(u => {
         if (u.fcmToken) {
           if (u.email) disarmTokenMap[u.email.toLowerCase()] = u.fcmToken;
           if (u.phone) disarmTokenMap[u.phone] = u.fcmToken;
         }
+        if (u.pushToken) {
+          if (u.email) disarmPushTokenMap[u.email.toLowerCase()] = u.pushToken;
+          if (u.phone) disarmPushTokenMap[u.phone] = u.pushToken;
+        }
       });
     }
-    const allClearTokens = [...new Set(contacts.map(c =>
-      (c.email && disarmTokenMap[c.email.toLowerCase()]) ||
-      (c.phone && disarmTokenMap[c.phone]) ||
-      c.fcmToken || null
-    ).filter(Boolean))];
 
-    if (allClearTokens.length > 0) {
-      await sendToMany(
-        allClearTokens,
-        `✅ ALL CLEAR — ${userName} is safe`,
-        `Incident ${incidentId} has been resolved. No further action needed.`,
-        { incidentId, status: 'disarmed' }
-      );
+    const allClearTitle = `✅ ALL CLEAR — ${userName} is safe`;
+    const allClearBody = `Incident ${incidentId} has been resolved. No further action needed.`;
+    const allClearData = { incidentId, status: 'disarmed' };
+
+    for (const contact of contacts) {
+      const expoToken =
+        (contact.email && disarmPushTokenMap[contact.email.toLowerCase()]) ||
+        (contact.phone && disarmPushTokenMap[contact.phone]) ||
+        contact.pushToken || null;
+      const fcmToken =
+        (contact.email && disarmTokenMap[contact.email.toLowerCase()]) ||
+        (contact.phone && disarmTokenMap[contact.phone]) ||
+        contact.fcmToken || null;
+
+      if (expoToken) {
+        const r = await sendExpoPushNotification(expoToken, allClearTitle, allClearBody, allClearData);
+        if (!r.success && fcmToken) await sendNotification(fcmToken, allClearTitle, allClearBody, allClearData);
+      } else if (fcmToken) {
+        await sendNotification(fcmToken, allClearTitle, allClearBody, allClearData);
+      }
     }
 
     // Mark any pending in-app alerts for this incident as disarmed

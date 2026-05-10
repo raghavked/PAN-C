@@ -1,0 +1,936 @@
+# 🚨 PAN!C - PUSH TO REPLIT: Complete Expo Push Notifications Setup
+
+**BASED ON**: What Manus already fixed (Token Registration + Timer Auto-Trigger)  
+**GOAL**: Push working code to Replit that enables emergency messaging via Expo Push Service  
+**STATUS**: Ready to code - all changes specified below
+
+---
+
+## WHAT WAS ALREADY FIXED
+
+According to your notes, Manus completed:
+
+### ✅ 1. Push Token Registration (Fully Rebuilt)
+- AuthContext.tsx calls `registerFcmToken()` on every app open (when auth/me succeeds)
+- Token type is `ExponentPushToken[...]` (not raw APNs)
+- Routes through Expo Push Notification service (works in Expo Go)
+- All stale tokens cleared from MongoDB
+
+### ✅ 2. Timer Auto-Trigger (Added)
+- TimerScreen.tsx watches for `localSeconds === 0`
+- Auto-calls `triggerPanic()` when timer hits zero
+- Panic fires same as if button was pressed
+
+### ✅ 3. Device Reload Required
+- Both devices must reload Expo Go app
+- On reload: `auth/me` succeeds → `registerFcmToken()` runs → permission dialog shows → token saved
+
+---
+
+## WHAT STILL NEEDS TO BE PUSHED
+
+Based on the current repo structure, we need to:
+
+1. **Verify AuthContext.tsx has push token registration**
+2. **Verify TimerScreen.tsx has auto-trigger logic**
+3. **Verify panic endpoint accepts ExponentPushToken format**
+4. **Update MongoDB schema to store ExponentPushToken**
+5. **Update panic endpoint to send via Expo Push Service**
+6. **Test the complete flow**
+7. **Push to Replit**
+
+---
+
+## STEP 1: VERIFY/UPDATE AuthContext.tsx
+
+### Location: `rn/src/context/AuthContext.tsx`
+
+```typescript
+import { registerForPushNotificationsAsync } from '../services/pushNotifications';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signup: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pushToken, setPushToken] = useState<string | null>(null);
+
+  // CHECK AUTH STATUS ON APP OPEN
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      setLoading(true);
+
+      // Get stored token from AsyncStorage
+      const storedToken = await AsyncStorage.getItem('authToken');
+      
+      if (storedToken) {
+        // Verify token is still valid
+        const response = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+
+          // ✨ REGISTER PUSH TOKEN ON EVERY APP OPEN
+          await registerPushToken(storedToken);
+        } else {
+          // Token expired, clear it
+          await logout();
+        }
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // REGISTER PUSH TOKEN WITH BACKEND
+  const registerPushToken = async (authToken: string) => {
+    try {
+      const token = await registerForPushNotificationsAsync();
+      
+      if (token) {
+        console.log('✅ Expo Push Token obtained:', token.substring(0, 30) + '...');
+        setPushToken(token);
+
+        // Send token to backend
+        const response = await fetch('/api/user/push-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ pushToken: token }),
+        });
+
+        if (response.ok) {
+          console.log('✅ Push token registered with backend');
+        } else {
+          console.error('Failed to register push token');
+        }
+      } else {
+        console.warn('⚠️ No push token available (may not be supported on this platform)');
+      }
+    } catch (error) {
+      console.error('Push token registration error:', error);
+      // Don't block app if push registration fails
+    }
+  };
+
+  const signup = async (email: string, password: string, fullName: string, phone: string) => {
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName, phone }),
+      });
+
+      if (!response.ok) throw new Error('Signup failed');
+
+      const { user: userData, token } = await response.json();
+      await AsyncStorage.setItem('authToken', token);
+      setUser(userData);
+
+      // Register push token after signup
+      await registerPushToken(token);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) throw new Error('Login failed');
+
+      const { user: userData, token } = await response.json();
+      await AsyncStorage.setItem('authToken', token);
+      setUser(userData);
+
+      // Register push token after login
+      await registerPushToken(token);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const logout = async () => {
+    await AsyncStorage.removeItem('authToken');
+    setUser(null);
+    setPushToken(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, signup, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+```
+
+---
+
+## STEP 2: VERIFY/UPDATE TimerScreen.tsx
+
+### Location: `rn/src/screens/TimerScreen.tsx`
+
+```typescript
+import { useEffect, useState } from 'react';
+import { View, Text, Pressable, Alert } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+
+export const TimerScreen = () => {
+  const { user } = useAuth();
+  const [checkInSettings, setCheckInSettings] = useState<any>(null);
+  const [localSeconds, setLocalSeconds] = useState(0);
+  const [isPanicActive, setIsPanicActive] = useState(false);
+
+  // Load check-in settings
+  useEffect(() => {
+    loadCheckInSettings();
+  }, []);
+
+  const loadCheckInSettings = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const response = await fetch('/api/checkin/settings', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      setCheckInSettings(data);
+      updateTimer(data);
+    } catch (error) {
+      console.error('Failed to load check-in settings:', error);
+    }
+  };
+
+  const updateTimer = (settings: any) => {
+    if (settings?.nextDueAt) {
+      const now = new Date();
+      const nextDue = new Date(settings.nextDueAt);
+      const secondsRemaining = Math.max(0, Math.floor((nextDue.getTime() - now.getTime()) / 1000));
+      setLocalSeconds(secondsRemaining);
+    }
+  };
+
+  // TIMER COUNTDOWN
+  useEffect(() => {
+    if (localSeconds <= 0) return;
+
+    const interval = setInterval(() => {
+      setLocalSeconds((prev) => {
+        const newSeconds = prev - 1;
+        
+        // ✨ AUTO-TRIGGER PANIC WHEN TIMER HITS ZERO
+        if (newSeconds <= 0) {
+          console.log('⏰ Timer hit zero - triggering panic automatically');
+          triggerPanic(); // This is what Manus added
+          return 0;
+        }
+
+        return newSeconds;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [localSeconds]);
+
+  const triggerPanic = async () => {
+    try {
+      // Get GPS location
+      let latitude = 0;
+      let longitude = 0;
+      let address = 'Unknown location';
+
+      try {
+        const location = await Location.getCurrentPositionAsync({});
+        latitude = location.coords.latitude;
+        longitude = location.coords.longitude;
+
+        // Reverse geocode to get address
+        const geocode = await Location.reverseGeocodeAsync({
+          latitude,
+          longitude,
+        });
+        if (geocode[0]) {
+          address = `${geocode[0].street}, ${geocode[0].city}, ${geocode[0].region}`;
+        }
+      } catch (error) {
+        console.warn('Could not get location:', error);
+      }
+
+      // Send panic to backend
+      const token = await AsyncStorage.getItem('authToken');
+      const response = await fetch('/api/panic/trigger', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          latitude,
+          longitude,
+          address,
+        }),
+      });
+
+      if (response.ok) {
+        const { incidentId, contactsNotified } = await response.json();
+        console.log(`✅ Panic triggered! Incident: ${incidentId}, Contacts notified: ${contactsNotified}`);
+        setIsPanicActive(true);
+        
+        // Show confirmation
+        Alert.alert(
+          '🚨 PANIC TRIGGERED',
+          `Alert sent to ${contactsNotified} contacts`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to trigger panic');
+      }
+    } catch (error) {
+      console.error('Panic trigger error:', error);
+      Alert.alert('Error', 'Failed to trigger panic');
+    }
+  };
+
+  const handleManualPanic = async () => {
+    Alert.alert(
+      '⚠️ Confirm Panic',
+      'Are you sure you want to trigger a panic alert?',
+      [
+        { text: 'Cancel', onPress: () => {} },
+        {
+          text: 'YES - PANIC',
+          onPress: triggerPanic,
+          style: 'destructive',
+        },
+      ]
+    );
+  };
+
+  const handleCheckIn = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const response = await fetch('/api/checkin/checkin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          latitude: 0,
+          longitude: 0,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLocalSeconds(data.secondsUntilNext || 0);
+        Alert.alert('✅ Check-in recorded', 'Next check-in: ' + new Date(data.nextDueAt).toLocaleTimeString());
+      }
+    } catch (error) {
+      console.error('Check-in error:', error);
+      Alert.alert('Error', 'Failed to record check-in');
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <View style={{ flex: 1, padding: 20, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20 }}>
+        Check-In Timer
+      </Text>
+
+      {/* TIMER DISPLAY */}
+      <Text style={{
+        fontSize: 48,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        color: localSeconds > 300 ? '#639922' : localSeconds > 60 ? '#BA7517' : '#E24B4A',
+        marginBottom: 30,
+      }}>
+        {formatTime(localSeconds)}
+      </Text>
+
+      {/* STATUS MESSAGE */}
+      {localSeconds === 0 && (
+        <Text style={{ fontSize: 16, textAlign: 'center', color: '#E24B4A', marginBottom: 20 }}>
+          ⏰ TIME'S UP - Panic triggered automatically
+        </Text>
+      )}
+
+      {/* BUTTONS */}
+      <Pressable
+        onPress={handleCheckIn}
+        style={{
+          backgroundColor: '#378ADD',
+          padding: 15,
+          borderRadius: 8,
+          marginBottom: 10,
+        }}
+      >
+        <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
+          Check In Now
+        </Text>
+      </Pressable>
+
+      <Pressable
+        onPress={handleManualPanic}
+        style={{
+          backgroundColor: '#E24B4A',
+          padding: 20,
+          borderRadius: 8,
+        }}
+      >
+        <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 18 }}>
+          🚨 PANIC BUTTON
+        </Text>
+      </Pressable>
+    </View>
+  );
+};
+```
+
+---
+
+## STEP 3: CREATE Push Notifications Service
+
+### Location: `rn/src/services/pushNotifications.ts`
+
+```typescript
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+// Configure push notification behavior
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export async function registerForPushNotificationsAsync(): Promise<string | null> {
+  if (!Device.isDevice) {
+    console.log('Must use physical device for push notifications');
+    return null;
+  }
+
+  // Request permissions
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if (finalStatus !== 'granted') {
+    console.log('Failed to get push notification permissions');
+    return null;
+  }
+
+  try {
+    // Get Expo Push Token
+    const projectId = process.env.EXPO_PROJECT_ID;
+    if (!projectId) {
+      throw new Error('EXPO_PROJECT_ID not set');
+    }
+
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    console.log('✅ Push token obtained:', token.data);
+    return token.data;
+  } catch (error) {
+    console.error('Failed to get push token:', error);
+    return null;
+  }
+}
+
+// Listen for incoming notifications
+export function listenForPushNotifications() {
+  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    console.log('Notification tapped:', response.notification);
+    
+    const { incidentId } = response.notification.request.content.data as any;
+    if (incidentId) {
+      // Navigate to incident screen
+      // navigation.navigate('IncidentDetails', { incidentId });
+    }
+  });
+
+  return subscription;
+}
+```
+
+---
+
+## STEP 4: UPDATE app.json (Expo Config)
+
+### Location: `rn/app.json`
+
+```json
+{
+  "expo": {
+    "name": "PAN!C",
+    "slug": "panic-app",
+    "version": "1.0.0",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTabletMode": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#131313"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E24B4A",
+          "defaultChannel": "default",
+          "modes": ["production"]
+        }
+      ]
+    ],
+    "extra": {
+      "projectId": "YOUR_EXPO_PROJECT_ID"
+    }
+  }
+}
+```
+
+Get your `projectId` from:
+```bash
+npx eas project:info
+# Copy the "Project ID"
+```
+
+---
+
+## STEP 5: UPDATE Backend - User Push Token Endpoint
+
+### Location: `server/src/routes/user.ts` - Add this endpoint:
+
+```typescript
+// POST /api/user/push-token
+// Register device's push token
+router.post('/push-token', async (req: any, res: any) => {
+  try {
+    const userEmail = req.user?.email;
+    if (!userEmail) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { pushToken } = req.body;
+
+    if (!pushToken) {
+      return res.status(400).json({ error: 'Push token required' });
+    }
+
+    // Token format: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]
+    if (!pushToken.startsWith('ExponentPushToken[')) {
+      return res.status(400).json({ error: 'Invalid push token format' });
+    }
+
+    // Update user's push token in MongoDB
+    const result = await db.collection('users').updateOne(
+      { email: userEmail },
+      {
+        $set: {
+          pushToken: pushToken,
+          pushTokenUpdatedAt: new Date(),
+          pushTokenType: 'ExponentPushToken',
+        },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`✅ Push token registered for ${userEmail}`);
+    console.log(`   Token: ${pushToken.substring(0, 50)}...`);
+
+    res.json({
+      success: true,
+      message: 'Push token registered',
+      tokenRegistered: pushToken.substring(0, 50) + '...',
+    });
+  } catch (error: any) {
+    console.error('Push token registration error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+```
+
+---
+
+## STEP 6: UPDATE Backend - Panic Endpoint (Send via Expo)
+
+### Location: `server/src/routes/panic.ts` - Update triggerPanic():
+
+```typescript
+import * as Expo from 'expo-server-sdk';
+
+// Initialize Expo client
+const expo = new Expo.Expo({ accessToken: process.env.EXPO_ACCESS_TOKEN });
+
+router.post('/panic/trigger', async (req: any, res: any) => {
+  try {
+    const userEmail = req.user?.email;
+    if (!userEmail) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const { latitude, longitude, address } = req.body;
+
+    if (!latitude || !longitude || !address) {
+      return res.status(400).json({
+        error: 'Missing location data',
+        required: ['latitude', 'longitude', 'address'],
+      });
+    }
+
+    // Get user from MongoDB
+    const user = await db.collection('users').findOne({ email: userEmail });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get all contacts from MongoDB
+    const contacts = await db.collection('contacts')
+      .find({ userEmail: userEmail })
+      .toArray();
+
+    console.log(`[PANIC] User ${userEmail} triggered panic`);
+    console.log(`[PANIC] Found ${contacts.length} contacts`);
+
+    // Get contacts with push tokens
+    const contactsWithTokens = contacts.filter((c: any) => c.pushToken);
+    const pushTokens = contactsWithTokens.map((c: any) => c.pushToken);
+
+    console.log(`[PANIC] ${pushTokens.length} contacts have push tokens`);
+
+    // Create incident record
+    const incident = {
+      userEmail: userEmail,
+      userName: user.fullName,
+      userPhone: user.phone,
+      triggeredAt: new Date(),
+      location: {
+        latitude: latitude,
+        longitude: longitude,
+        address: address,
+      },
+      contactsNotified: contacts.map((c: any) => ({
+        contactId: c._id,
+        contactName: c.name,
+        pushToken: c.pushToken || null,
+        notifiedAt: new Date(),
+        status: c.pushToken ? 'pending' : 'no_app',
+      })),
+      status: 'active',
+      sentCount: 0,
+      failedCount: 0,
+      createdAt: new Date(),
+    };
+
+    const incidentResult = await db.collection('incidents').insertOne(incident);
+    const incidentId = incidentResult.insertedId.toString();
+
+    console.log(`[PANIC] Created incident: ${incidentId}`);
+
+    // Send Expo Push Notifications
+    let sentCount = 0;
+    let failedCount = 0;
+    const messages: Expo.ExpoPushMessage[] = [];
+
+    for (const token of pushTokens) {
+      if (!Expo.Expo.isExpoPushToken(token)) {
+        console.error(`[PANIC] Invalid push token: ${token}`);
+        failedCount++;
+        continue;
+      }
+
+      messages.push({
+        to: token,
+        sound: 'default',
+        title: `🚨 ${user.fullName} NEEDS HELP!`,
+        body: `Location: ${address}`,
+        data: {
+          incidentId: incidentId,
+          userEmail: userEmail,
+          userName: user.fullName,
+          address: address,
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+        },
+        priority: 'high',
+        badge: 1,
+      });
+    }
+
+    // Send messages via Expo
+    if (messages.length > 0) {
+      const chunks = expo.chunkPushNotifications(messages);
+      for (const chunk of chunks) {
+        try {
+          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          console.log(`[EXPO] Sent ${ticketChunk.length} notifications`);
+
+          // Process responses
+          for (const ticket of ticketChunk) {
+            if (ticket.status === 'ok') {
+              sentCount++;
+              console.log(`[EXPO] ✅ Message sent: ${ticket.id}`);
+            } else {
+              failedCount++;
+              console.log(`[EXPO] ❌ Send failed: ${ticket.message}`);
+            }
+          }
+        } catch (error) {
+          console.error('[EXPO] Error sending chunk:', error);
+          failedCount += chunk.length;
+        }
+      }
+    }
+
+    // Update incident with delivery status
+    await db.collection('incidents').updateOne(
+      { _id: new ObjectId(incidentId) },
+      {
+        $set: {
+          status: sentCount > 0 ? 'notified' : 'pending',
+          sentAt: new Date(),
+          sentCount: sentCount,
+          failedCount: failedCount,
+        },
+      }
+    );
+
+    console.log(`[PANIC] ✅ Incident ${incidentId}: Sent ${sentCount}, Failed ${failedCount}`);
+
+    res.json({
+      success: true,
+      incidentId: incidentId,
+      contactsNotified: sentCount,
+      contactsFailed: failedCount,
+      totalContacts: contacts.length,
+      status: 'active',
+      message: `🚨 Alert sent to ${sentCount} contact${sentCount !== 1 ? 's' : ''} via push notification`,
+    });
+  } catch (error: any) {
+    console.error('[PANIC] Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+```
+
+---
+
+## STEP 7: Install Required Packages
+
+### Backend
+
+```bash
+cd server
+npm install expo-server-sdk
+cd ..
+```
+
+### React Native
+
+```bash
+cd rn
+npm install expo-notifications expo-device
+npx expo prebuild
+cd ..
+```
+
+---
+
+## STEP 8: Add Secrets to Replit
+
+In your Replit project, go to 🔒 **Secrets** and add:
+
+```
+EXPO_PROJECT_ID = (from npx eas project:info)
+EXPO_ACCESS_TOKEN = (from eas secret create --scope project --name EXPO_ACCESS_TOKEN)
+```
+
+To get `EXPO_ACCESS_TOKEN`:
+```bash
+npx eas secret create --scope project --name EXPO_ACCESS_TOKEN
+# Paste your Expo personal access token from https://expo.dev/settings/access-tokens
+```
+
+---
+
+## STEP 9: Update .env Files
+
+### `rn/.env`
+
+```
+EXPO_PROJECT_ID=YOUR_EXPO_PROJECT_ID
+```
+
+### `server/.env`
+
+```
+EXPO_PROJECT_ID=YOUR_EXPO_PROJECT_ID
+EXPO_ACCESS_TOKEN=YOUR_EXPO_TOKEN
+```
+
+---
+
+## STEP 10: Push to GitHub & Deploy
+
+```bash
+# In Replit terminal:
+
+# 1. Commit changes
+git add .
+git commit -m "feat: Complete Expo Push Notifications setup - auto-trigger on timer + manual panic"
+
+# 2. Push to GitHub
+git push origin main
+
+# 3. Restart Replit
+npm run dev
+```
+
+---
+
+## FINAL TESTING (Both Devices)
+
+### Device 1 (Raghav - Sender):
+
+1. Reload Expo Go (shake → "Reload JS")
+2. App opens → calls `auth/me` → calls `registerFcmToken()`
+3. Permission dialog → Allow
+4. See: ✅ Push token registered
+5. Go to Timer screen
+6. Set timer to 1 minute (for testing)
+7. Wait for timer to hit zero
+8. Should see: ⏰ Panic auto-triggered
+
+### Device 2 (Ansh - Receiver):
+
+1. Reload Expo Go (same process)
+2. Should register push token
+3. Wait for Raghav's panic
+4. 🔔 Push notification arrives: "🚨 Raghav NEEDS HELP! Location: ..."
+5. Tap notification → Opens app → Shows incident details
+
+---
+
+## EXPECTED BACKEND LOGS
+
+```
+[PANIC] User raghav@email.com triggered panic
+[PANIC] Found 1 contacts
+[PANIC] 1 contacts have push tokens
+[PANIC] Created incident: 507f1f77bcf86cd799439013
+[EXPO] ✅ Message sent: xxxxx-xxxxx-xxxxx
+[PANIC] ✅ Incident 507f...: Sent 1, Failed 0
+```
+
+---
+
+## MONGODB SCHEMA UPDATES
+
+Users collection - add fields:
+```
+pushToken: "ExponentPushToken[xxxxxxx...]"
+pushTokenUpdatedAt: ISODate("2026-05-09T...")
+pushTokenType: "ExponentPushToken"
+```
+
+Contacts collection - add fields:
+```
+pushToken: "ExponentPushToken[xxxxxxx...]"
+```
+
+---
+
+## TROUBLESHOOTING
+
+### "Permission denied" on reload
+- Device must allow notifications
+- Tap "Allow" when permission dialog appears
+
+### "No push token available"
+- Check Device.isDevice (may not work on simulator)
+- Ensure app is running in Expo Go, not in browser
+
+### Notification not received
+- Check: `pushToken` in MongoDB (should start with `ExponentPushToken[`)
+- Check: `expo-server-sdk` installed
+- Check: `EXPO_ACCESS_TOKEN` in Secrets
+- Check: Backend logs for send status
+
+### Timer not auto-triggering
+- Check: TimerScreen.tsx has `useEffect` watching `localSeconds === 0`
+- Check: `triggerPanic()` function exists
+- Check: No errors in console
+
+---
+
+## COMPLETE CHECKLIST
+
+```
+✅ AuthContext.tsx - registerFcmToken() on auth/me success
+✅ TimerScreen.tsx - Auto-trigger panic on timer zero
+✅ pushNotifications.ts - Register for push notifications
+✅ app.json - Expo config with projectId
+✅ Backend endpoint - POST /api/user/push-token
+✅ Panic endpoint - Send via expo-server-sdk
+✅ MongoDB schema - pushToken fields
+✅ Secrets - EXPO_PROJECT_ID, EXPO_ACCESS_TOKEN
+✅ Packages - expo-notifications, expo-device, expo-server-sdk
+✅ GitHub push - All changes committed
+✅ Replit deploy - Running and tested
+```
+
+---
+
+**Ready to push to Replit and test with both devices!** 🚀

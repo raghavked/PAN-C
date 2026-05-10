@@ -9,19 +9,18 @@ import React, {
 import { Platform } from 'react-native';
 import { apiRequest } from '../utils/apiClient';
 import { storage, initStorage } from '../utils/storage';
+import { registerForPushNotificationsAsync } from '../services/pushNotifications';
 
-async function registerFcmToken(authToken: string) {
+async function registerPushToken(authToken: string) {
   if (Platform.OS === 'web') return;
   try {
-    const Notifications = await import('expo-notifications');
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') return;
-    const tokenData = await Notifications.getDevicePushTokenAsync();
-    if (tokenData?.data) {
-      await apiRequest('/auth/fcm-token', 'POST', { fcmToken: tokenData.data }, authToken);
+    const token = await registerForPushNotificationsAsync();
+    if (token) {
+      await apiRequest('/user/push-token', 'POST', { pushToken: token }, authToken);
+      console.log('[Auth] Expo Push Token registered with backend');
     }
   } catch (e) {
-    console.warn('[Auth] FCM token registration skipped:', (e as Error).message);
+    console.warn('[Auth] Push token registration skipped:', (e as Error).message);
   }
 }
 
@@ -67,24 +66,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Pre-load secure storage into memory cache on native before reading tokens
     initStorage().then(() => {
-    const stored = storage.getItem(TOKEN_KEY);
-    const phrase = storage.getItem(PHRASE_KEY);
-    if (phrase) setSafePhraseState(phrase);
-    if (stored) {
-      setToken(stored);
-      apiRequest<{ user: AuthUser }>('/auth/me', 'GET', undefined, stored)
-        .then(({ user }) => setUser(user))
-        .catch(() => {
-          storage.removeItem(TOKEN_KEY);
-          setToken(null);
-        })
-        .finally(() => setIsLoading(false));
-    } else {
-      setIsLoading(false);
-    }
-    }); // end initStorage().then
+      const stored = storage.getItem(TOKEN_KEY);
+      const phrase = storage.getItem(PHRASE_KEY);
+      if (phrase) setSafePhraseState(phrase);
+      if (stored) {
+        setToken(stored);
+        apiRequest<{ user: AuthUser }>('/auth/me', 'GET', undefined, stored)
+          .then(({ user }) => {
+            setUser(user);
+            registerPushToken(stored).catch(() => {});
+          })
+          .catch(() => {
+            storage.removeItem(TOKEN_KEY);
+            setToken(null);
+          })
+          .finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
+      }
+    });
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -95,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     storage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
     setUser(data.user);
-    registerFcmToken(data.token).catch(() => {});
+    registerPushToken(data.token).catch(() => {});
   }, []);
 
   const signup = useCallback(async (payload: SignupPayload) => {
@@ -108,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     storage.setItem(TOKEN_KEY, data.token);
     setToken(data.token);
     setUser(data.user);
-    registerFcmToken(data.token).catch(() => {});
+    registerPushToken(data.token).catch(() => {});
 
     if (contact?.name) {
       await apiRequest('/contacts', 'POST', contact, data.token).catch(() => {});

@@ -14,12 +14,13 @@ const PRESETS = [
 ];
 
 export const TimerScreen: React.FC = () => {
-  const { isActive, timer, checkIn } = usePanic();
+  const { isActive, timer, checkIn, triggerPanic } = usePanic();
   const [localSeconds, setLocalSeconds] = useState(30 * 60);
   const [running, setRunning] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState(1);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const didExpireRef = useRef(false);
 
   useEffect(() => {
     if (!running) {
@@ -29,12 +30,24 @@ export const TimerScreen: React.FC = () => {
     if (localSeconds <= 0) { setRunning(false); return; }
     intervalRef.current = setInterval(() => {
       setLocalSeconds((s) => {
-        if (s <= 1) { setRunning(false); return 0; }
+        if (s <= 1) {
+          didExpireRef.current = true;
+          setRunning(false);
+          return 0;
+        }
         return s - 1;
       });
     }, 1000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running]);
+
+  useEffect(() => {
+    if (localSeconds === 0 && didExpireRef.current) {
+      didExpireRef.current = false;
+      console.log('[Timer] Countdown expired — auto-triggering panic');
+      triggerPanic().catch((e) => console.error('[Timer] Auto-trigger failed:', e));
+    }
+  }, [localSeconds, triggerPanic]);
 
   useEffect(() => {
     if (running && localSeconds < 60) {
