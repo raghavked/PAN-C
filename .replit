@@ -1,12 +1,17 @@
-[core]
-entrypoint = "index.js"
+run = "npm run dev"
+entrypoint = "src/main.tsx"
 
 [nix]
-channel = "stable-24.05"
+channel = "stable-23_11"
+
+[deployment]
+run = ["sh", "-c", "npm run build && npm run preview"]
+deploymentTarget = "cloudrun"
+ignorePorts = false
+
+[[ports]]
+localPort = 3000
+externalPort = 80
 
 [env]
-REPLIT_LANGUAGE = "nodejs"
-
-[ports]
-3001 = { expose = "true" }
-5000 = { expose = "true" }
+VITE_API_URL = "http://localhost:3000/api"
