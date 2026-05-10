@@ -1,5 +1,6 @@
 // Service layer — all external API integrations
 export { panicService } from './panicService';
+export { fcmService } from './fcmService';
 export { mongoService } from './mongoService';
 export { elevenLabsService } from './elevenLabsService';
 export { geminiService } from './geminiService';

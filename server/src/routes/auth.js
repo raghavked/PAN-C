@@ -194,4 +194,23 @@ router.put('/profile', requireAuth, async (req, res) => {
   }
 });
 
+// POST /api/auth/fcm-token — Register device FCM token for push notifications
+router.post('/fcm-token', requireAuth, async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) return res.status(400).json({ error: 'fcmToken is required' });
+
+    const db = getDB();
+    await db.collection('users').updateOne(
+      { email: req.userEmail },
+      { $set: { fcmToken, fcmTokenUpdatedAt: new Date() } }
+    );
+
+    console.log(`✅ FCM token registered for ${req.userEmail}`);
+    res.json({ success: true, message: 'FCM token registered' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

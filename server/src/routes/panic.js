@@ -4,16 +4,12 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { getDB } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { sendToMany, initializeFirebase } = require('../services/fcmService');
 
 const router = express.Router();
 
-function getTwilioClient() {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  if (!accountSid || !authToken) return null;
-  const twilio = require('twilio');
-  return twilio(accountSid, authToken);
-}
+// Initialize Firebase on module load
+initializeFirebase();
 
 async function generateElevenLabsAudio(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -24,7 +20,11 @@ async function generateElevenLabsAudio(text) {
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+      }),
     });
     if (!response.ok) return null;
     const audioBuffer = await response.arrayBuffer();
@@ -34,67 +34,90 @@ async function generateElevenLabsAudio(text) {
   }
 }
 
-// POST /api/panic/trigger
+// ── POST /api/panic/trigger ───────────────────────────────────────────────────
 router.post('/trigger', requireAuth, async (req, res) => {
   try {
     const { latitude, longitude, address } = req.body;
     const db = getDB();
 
     const incidentId = `INC-${uuidv4().slice(0, 6).toUpperCase()}-${uuidv4().slice(0, 3).toUpperCase()}`;
+    const locationText = latitude && longitude
+      ? `GPS: ${Number(latitude).toFixed(6)}, ${Number(longitude).toFixed(6)}`
+      : 'Location unavailable';
+    const addr = address || locationText;
 
     // Get user info
     const user = await db.collection('users').findOne({ email: req.userEmail });
+    const userName = user?.fullName || user?.name || req.userEmail;
 
-    // Get contacts
-    const contacts = await db.collection('contacts').find({ userEmail: req.userEmail }).toArray();
+    // Get all contacts for this user
+    const contacts = await db.collection('contacts')
+      .find({ userEmail: req.userEmail })
+      .toArray();
 
-    // Generate ElevenLabs audio
+    // Separate contacts with FCM tokens (app installed) from those without
+    const contactsWithTokens = contacts.filter(c => c.fcmToken);
+    const fcmTokens = contactsWithTokens.map(c => c.fcmToken);
+
+    console.log(`[PAN!C] Panic triggered by ${req.userEmail} — ${contacts.length} contacts, ${fcmTokens.length} with FCM tokens`);
+
+    // Generate ElevenLabs audio alert
     const audioBase64 = await generateElevenLabsAudio(
-      `HELP! ICE AGENTS! HELP! LA MIGRA! This is an emergency alert from PAN!C. ${user.fullName} needs help. Incident ID: ${incidentId}`
+      `HELP! ICE AGENTS! HELP! LA MIGRA! This is an emergency alert from PAN!C. ${userName} needs help. Incident ID: ${incidentId}`
     );
 
-    // Send SMS via Twilio
-    const twilioClient = getTwilioClient();
-    const contactsNotified = [];
-    const locationText = latitude && longitude
-      ? `GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-      : 'Location unavailable';
+    // Send Firebase Cloud Messaging push notifications
+    let sentCount = 0;
+    let failedCount = 0;
+    let failedTokens = [];
 
-    for (const contact of contacts) {
-      if (contact.notifyVia?.sms && contact.phone) {
-        const smsBody = `🚨 EMERGENCY ALERT from PAN!C\n${user.fullName} has triggered a panic alert.\n${locationText}\nIncident ID: ${incidentId}\nReply HELP for more info.`;
-        let smsStatus = 'failed';
-        try {
-          if (twilioClient) {
-            await twilioClient.messages.create({
-              body: smsBody,
-              from: process.env.TWILIO_PHONE_NUMBER,
-              to: contact.phone,
-            });
-            smsStatus = 'sent';
-          }
-        } catch (e) {
-          console.error('Twilio SMS error:', e.message);
+    if (fcmTokens.length > 0) {
+      const fcmResult = await sendToMany(
+        fcmTokens,
+        `🚨 ${userName} NEEDS HELP!`,
+        `Location: ${addr}`,
+        {
+          incidentId,
+          userEmail: req.userEmail,
+          userName,
+          address: addr,
+          latitude: String(latitude || ''),
+          longitude: String(longitude || ''),
         }
-        contactsNotified.push({
-          contactId: contact._id,
-          name: contact.name,
-          notifiedAt: new Date(),
-          method: 'sms',
-          status: smsStatus,
-        });
-      }
+      );
+      sentCount = fcmResult.sentCount;
+      failedCount = fcmResult.failedCount;
+      failedTokens = fcmResult.failedTokens;
     }
+
+    // Build contactsNotified array
+    const contactsNotified = contacts.map(c => ({
+      contactId: c._id,
+      name: c.name,
+      phone: c.phone || null,
+      hasApp: !!c.fcmToken,
+      notifiedAt: new Date(),
+      method: c.fcmToken ? 'fcm_push' : 'no_app',
+      status: c.fcmToken
+        ? (failedTokens.includes(c.fcmToken) ? 'failed' : 'sent')
+        : 'no_app',
+    }));
 
     // Create incident record
     const incident = {
       incidentId,
       userEmail: req.userEmail,
       triggeredAt: new Date(),
-      location: { latitude: latitude || 0, longitude: longitude || 0, address: address || '' },
+      location: {
+        latitude: latitude || null,
+        longitude: longitude || null,
+        address: addr,
+      },
       contactsNotified,
       audioBase64: audioBase64 || null,
       status: 'active',
+      sentCount,
+      failedCount,
       disarmedAt: null,
       disarmedBy: null,
       createdAt: new Date(),
@@ -105,8 +128,16 @@ router.post('/trigger', requireAuth, async (req, res) => {
     // Update chatbot context
     await db.collection('chatbotConversations').updateOne(
       { userEmail: req.userEmail },
-      { $set: { 'context.lastPanicAt': new Date(), 'context.checkInStatus': 'panic_active', updatedAt: new Date() } }
+      {
+        $set: {
+          'context.lastPanicAt': new Date(),
+          'context.checkInStatus': 'panic_active',
+          updatedAt: new Date(),
+        },
+      }
     );
+
+    console.log(`[PAN!C] Incident ${incidentId}: FCM sent=${sentCount}, failed=${failedCount}`);
 
     res.status(201).json({
       incidentId,
@@ -114,13 +145,19 @@ router.post('/trigger', requireAuth, async (req, res) => {
       contactsNotified,
       audioBase64,
       status: 'active',
+      sentCount,
+      failedCount,
+      totalContacts: contacts.length,
+      contactsWithoutApp: contacts.length - fcmTokens.length,
+      message: `🚨 Alert sent to ${sentCount} contact${sentCount !== 1 ? 's' : ''} via push notification`,
     });
   } catch (err) {
+    console.error('[PAN!C] Panic trigger error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// POST /api/panic/disarm
+// ── POST /api/panic/disarm ────────────────────────────────────────────────────
 router.post('/disarm', requireAuth, async (req, res) => {
   try {
     const { incidentId, safePhrase } = req.body;
@@ -145,23 +182,21 @@ router.post('/disarm', requireAuth, async (req, res) => {
       { $set: { status: 'disarmed', disarmedAt: now, disarmedBy: 'user_safe_phrase' } }
     );
 
-    // Send all-clear SMS
+    // Send all-clear FCM push to contacts with the app
     const user = await db.collection('users').findOne({ email: req.userEmail });
-    const contacts = await db.collection('contacts').find({ userEmail: req.userEmail }).toArray();
-    const twilioClient = getTwilioClient();
+    const userName = user?.fullName || user?.name || req.userEmail;
+    const contacts = await db.collection('contacts')
+      .find({ userEmail: req.userEmail })
+      .toArray();
+    const allClearTokens = contacts.filter(c => c.fcmToken).map(c => c.fcmToken);
 
-    for (const contact of contacts) {
-      if (contact.notifyVia?.sms && contact.phone && twilioClient) {
-        try {
-          await twilioClient.messages.create({
-            body: `✅ ALL CLEAR from PAN!C\n${user.fullName} is safe. Incident ${incidentId} has been resolved.`,
-            from: process.env.TWILIO_PHONE_NUMBER,
-            to: contact.phone,
-          });
-        } catch (e) {
-          console.error('Twilio all-clear SMS error:', e.message);
-        }
-      }
+    if (allClearTokens.length > 0) {
+      await sendToMany(
+        allClearTokens,
+        `✅ ALL CLEAR — ${userName} is safe`,
+        `Incident ${incidentId} has been resolved.`,
+        { incidentId, status: 'disarmed' }
+      );
     }
 
     await db.collection('chatbotConversations').updateOne(
@@ -169,13 +204,14 @@ router.post('/disarm', requireAuth, async (req, res) => {
       { $set: { 'context.checkInStatus': 'safe', updatedAt: now } }
     );
 
-    res.json({ message: 'Incident disarmed. All-clear sent to contacts.' });
+    res.json({ message: 'Incident disarmed. All-clear push notification sent to contacts.' });
   } catch (err) {
+    console.error('[PAN!C] Panic disarm error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/incidents
+// ── GET /api/panic/incidents ──────────────────────────────────────────────────
 router.get('/incidents', requireAuth, async (req, res) => {
   try {
     const db = getDB();
@@ -190,7 +226,21 @@ router.get('/incidents', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/auth/settings/safephrase — Set safe phrase
+// ── GET /api/panic/active ─────────────────────────────────────────────────────
+router.get('/active', requireAuth, async (req, res) => {
+  try {
+    const db = getDB();
+    const active = await db.collection('incidents').findOne(
+      { userEmail: req.userEmail, status: 'active' },
+      { sort: { triggeredAt: -1 }, projection: { audioBase64: 0 } }
+    );
+    res.json({ incident: active || null, hasActive: !!active });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /api/panic/safephrase ────────────────────────────────────────────────
 router.post('/safephrase', requireAuth, async (req, res) => {
   try {
     const { safePhrase } = req.body;

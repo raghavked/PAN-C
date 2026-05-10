@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { contactsApi, documentsApi, checkinApi, panicApi, type CheckInSettings } from '../services/api';
+import { fcmService } from '../services/fcmService';
 import { colors } from '../theme/colors';
 
 type Screen = 'home' | 'contacts' | 'documents' | 'checkin' | 'chat' | 'panic';
@@ -36,7 +37,7 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    const phrase = (user as Record<string, unknown>)?.safePhrase as string ?? '';
+    const phrase = (user as unknown as Record<string, unknown>)?.safePhrase as string ?? '';
     setSafePhrase(phrase);
     setSafePhraseInput(phrase);
   }, [user]);
@@ -55,6 +56,24 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
       setTimeout(() => setSafePhraseStatus('idle'), 2000);
     }
   };
+
+  // Listen for incoming FCM push notifications while app is in foreground
+  useEffect(() => {
+    fcmService.onMessageListener()
+      .then((payload: unknown) => {
+        const p = payload as { notification?: { title?: string; body?: string }; data?: { incidentId?: string } };
+        const title = p.notification?.title || '🚨 Emergency Alert';
+        const body = p.notification?.body || 'Someone needs help!';
+        // Show a native browser notification if permission granted
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(title, { body, icon: '/favicon.svg' });
+        } else {
+          // Fallback: browser alert
+          window.alert(`${title}\n${body}`);
+        }
+      })
+      .catch(() => { /* FCM not supported — silently ignore */ });
+  }, []);
 
   const handleCheckIn = async () => {
     try {
@@ -104,7 +123,7 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
           <div style={styles.checkinLeft}>
             <span style={{ fontSize: 20 }}>{checkin.isOverdue ? '⚠️' : '⏰'}</span>
             <div>
-              <div style={{ ...styles.checkinTitle, color: checkin.isOverdue ? colors.alertRed : colors.textPrimaryPrimary }}>
+              <div style={{ ...styles.checkinTitle, color: checkin.isOverdue ? colors.alertRed : colors.textPrimary }}>
                 {checkin.isOverdue ? 'Check-In Overdue!' : `Check-In: ${checkin.minutesRemaining} min remaining`}
               </div>
               <div style={styles.checkinSub}>Every {checkin.settings.intervalMinutes} minutes</div>
@@ -159,7 +178,7 @@ export default function HomeScreen({ onNavigate, onPanic }: Props) {
 
         {/* Safe Phrase */}
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, color: colors.textPrimarySecondary, marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 6 }}>
             SAFE PHRASE {safePhrase ? '✓' : '⚠ not set'}
           </div>
           {safePhraseEditing ? (
@@ -218,8 +237,8 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '20px 16px 16px',
     borderBottom: `1px solid ${colors.border}`,
   },
-  welcomeText: { fontSize: 14, color: colors.textPrimarySecondary, marginBottom: 2 },
-  appName: { fontSize: 28, fontWeight: 800, color: colors.textPrimaryPrimary, letterSpacing: '-1px' },
+  welcomeText: { fontSize: 14, color: colors.textSecondary, marginBottom: 2 },
+  appName: { fontSize: 28, fontWeight: 800, color: colors.textPrimary, letterSpacing: '-1px' },
   exclaim: { color: colors.alertRed },
   settingsBtn: { background: 'transparent', border: 'none', fontSize: 22, cursor: 'pointer', padding: 4 },
   checkinBanner: {
@@ -235,13 +254,13 @@ const styles: Record<string, React.CSSProperties> = {
   },
   checkinLeft: { display: 'flex', alignItems: 'center', gap: 10 },
   checkinTitle: { fontSize: 14, fontWeight: 700 },
-  checkinSub: { fontSize: 12, color: colors.textPrimaryMuted },
+  checkinSub: { fontSize: 12, color: colors.textMuted },
   checkinBtns: { display: 'flex', gap: 8 },
   snoozeBtn: {
     background: colors.surface2,
     border: `1px solid ${colors.border}`,
     borderRadius: 6,
-    color: colors.textPrimarySecondary,
+    color: colors.textSecondary,
     fontSize: 12,
     padding: '6px 10px',
     cursor: 'pointer',
@@ -284,7 +303,7 @@ const styles: Record<string, React.CSSProperties> = {
   panicSubtext: {
     fontSize: 12,
     fontWeight: 700,
-    color: colors.textPrimarySecondary,
+    color: colors.textSecondary,
     letterSpacing: '0.15em',
     textTransform: 'uppercase',
     marginTop: 12,
@@ -309,10 +328,10 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'inherit',
   },
   navIcon: { fontSize: 24 },
-  navLabel: { fontSize: 14, fontWeight: 700, color: colors.textPrimaryPrimary },
+  navLabel: { fontSize: 14, fontWeight: 700, color: colors.textPrimary },
   navCount: {
     fontSize: 12,
-    color: colors.textPrimaryMuted,
+    color: colors.textMuted,
     background: colors.surface2,
     borderRadius: 20,
     padding: '2px 8px',
@@ -328,7 +347,7 @@ const styles: Record<string, React.CSSProperties> = {
   infoTitle: {
     fontSize: 12,
     fontWeight: 700,
-    color: colors.textPrimarySecondary,
+    color: colors.textSecondary,
     marginBottom: 10,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
@@ -338,7 +357,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     border: `1px solid ${colors.border}`,
     borderRadius: 6,
-    color: colors.textPrimarySecondary,
+    color: colors.textSecondary,
     fontSize: 13,
     padding: '6px 12px',
     cursor: 'pointer',

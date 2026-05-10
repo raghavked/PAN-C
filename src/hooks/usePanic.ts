@@ -49,7 +49,7 @@ export const usePanic = (): UsePanicReturn => {
     // 1. Set local state immediately (fast UI response)
     setPanicState({
       isActive: true,
-      contactsNotified: MOCK_CONTACTS.length,
+      contactsNotified: [].length,
       incidentId: newIncidentId,
       timer: 135,
       triggeredAt: now,
@@ -83,7 +83,7 @@ export const usePanic = (): UsePanicReturn => {
       timestamp: now.toISOString(),
       location,
       status: 'active',
-      contactsNotified: MOCK_CONTACTS.length,
+      contactsNotified: [].length,
     }).catch((e) => console.warn('[usePanic] MongoDB log failed:', e));
 
     // 5. Save incident to Backboard long-term memory for future AI context

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { contactsApi, panicApi } from '../services/api';
+import { fcmService } from '../services/fcmService';
 import { colors } from '../theme/colors';
 
 interface Props {
@@ -104,6 +105,8 @@ export default function SignUpScreen({ onComplete, onLogin }: Props) {
     setLoading(true);
     try {
       await panicApi.setSafePhrase(safePhrase);
+      // Register device for push notifications (non-blocking)
+      fcmService.setupPushNotifications().catch(() => {});
       onComplete();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to set safe phrase');
