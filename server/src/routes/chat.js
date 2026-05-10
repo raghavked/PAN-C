@@ -4,7 +4,38 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-async function callGemini(messages, context, userMessage) {
+const BACKBOARD_KEY = process.env.VITE_BACKBOARD_API_KEY;
+const BACKBOARD_ASSISTANT = process.env.VITE_BACKBOARD_ASSISTANT_ID;
+const BACKBOARD_BASE = 'https://app.backboard.io/api';
+
+async function searchMemories(query) {
+  if (!BACKBOARD_KEY || !BACKBOARD_ASSISTANT) return [];
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${BACKBOARD_BASE}/assistants/${BACKBOARD_ASSISTANT}/memories/search`, {
+      method: 'POST',
+      headers: { 'X-API-Key': BACKBOARD_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, limit: 5 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.memories ?? [];
+  } catch { return []; }
+}
+
+function saveMemory(content, metadata) {
+  if (!BACKBOARD_KEY || !BACKBOARD_ASSISTANT) return;
+  fetch(`${BACKBOARD_BASE}/assistants/${BACKBOARD_ASSISTANT}/memories`, {
+    method: 'POST',
+    headers: { 'X-API-Key': BACKBOARD_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, metadata }),
+  }).catch(() => {});
+}
+
+async function callGemini(messages, context, userMessage, memories = []) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return `I'm PAN!C, your emergency assistant. ${getDefaultRightsResponse(userMessage)}`;
@@ -14,6 +45,10 @@ async function callGemini(messages, context, userMessage) {
     const { GoogleGenerativeAI } = require('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || 'gemini-2.0-flash' });
+
+    const memoryBlock = memories.length > 0
+      ? `\nLong-term memory (from past sessions):\n${memories.map(m => `- ${m.content}`).join('\n')}`
+      : '';
 
     const systemPrompt = `You are PAN!C, an AI assistant for an emergency alert app used by immigrants and vulnerable communities facing ICE enforcement. Your role is to:
 1. Explain legal rights clearly and calmly (right to remain silent, right to a lawyer, do not open the door without a warrant)
@@ -25,7 +60,7 @@ User context:
 - Documents on file: ${context.documentsOnFile?.join(', ') || 'none'}
 - Emergency contacts: ${context.emergencyContacts?.join(', ') || 'none'}
 - Check-in status: ${context.checkInStatus || 'unknown'}
-- Last panic event: ${context.lastPanicAt ? new Date(context.lastPanicAt).toLocaleDateString() : 'none'}
+- Last panic event: ${context.lastPanicAt ? new Date(context.lastPanicAt).toLocaleDateString() : 'none'}${memoryBlock}
 
 Always respond in the language the user writes in. Be concise and clear. In emergencies, prioritize actionable steps.`;
 
@@ -80,9 +115,16 @@ router.post('/message', requireAuth, async (req, res) => {
 
     const userMsg = { role: 'user', content: message, timestamp: new Date() };
 
-    // Get AI response
-    const aiText = await callGemini(conversation.messages, conversation.context, message);
+    // Pull relevant long-term memories from Backboard, then call Gemini
+    const memories = await searchMemories(message);
+    const aiText = await callGemini(conversation.messages, conversation.context, message, memories);
     const assistantMsg = { role: 'assistant', content: aiText, timestamp: new Date() };
+
+    // Persist this exchange as a memory for future sessions (non-blocking)
+    saveMemory(
+      `User asked: "${message}" | Assistant said: "${aiText.substring(0, 300)}"`,
+      { source: 'chat', userEmail: req.userEmail }
+    );
 
     // Save to MongoDB
     await db.collection('chatbotConversations').updateOne(
