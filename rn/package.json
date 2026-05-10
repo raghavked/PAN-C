@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "@expo/metro-runtime": "~55.0.11",
+    "@expo/ngrok-bin": "^2.3.40",
     "@react-navigation/bottom-tabs": "^7.0.0",
     "@react-navigation/native": "^7.0.0",
     "expo": "~54.0.34",
