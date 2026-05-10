@@ -1,0 +1,404 @@
+# 🔧 REPLIT FIX GUIDE - Environment Variables & API URL Configuration
+
+**PROBLEM**: EXPO_PUBLIC_API_URL might not be set or environment variables not loading correctly  
+**SOLUTION**: Properly configure environment variables for Expo  
+**TIME**: 5 minutes
+
+---
+
+## THE ISSUE
+
+Expo requires environment variables to be prefixed with `EXPO_PUBLIC_` to be accessible in the frontend code. The API URL needs to be available to the React Native app at runtime.
+
+---
+
+## REPLIT: FOLLOW THESE STEPS
+
+### STEP 1: Check Current Configuration
+
+```bash
+# Check if .env files exist
+ls -la rn/.env
+ls -la server/.env
+
+# Check what's in rn/.env
+cat rn/.env
+
+# Check if variables are being loaded
+echo "EXPO_PROJECT_ID: $EXPO_PROJECT_ID"
+echo "EXPO_PUBLIC_API_URL: $EXPO_PUBLIC_API_URL"
+```
+
+---
+
+### STEP 2: Update rn/.env
+
+Edit or create `rn/.env` with the correct format:
+
+```bash
+cd rn
+
+cat > .env << 'EOF'
+EXPO_PROJECT_ID=550e8400-e29b-41d4-a716-446655440000
+EXPO_OWNER=your-expo-username
+EXPO_PUBLIC_API_URL=http://localhost:3001/api
+EXPO_PUBLIC_ENVIRONMENT=development
+EOF
+
+echo "✅ Created/Updated rn/.env"
+cat .env
+```
+
+**IMPORTANT**: 
+- `EXPO_PROJECT_ID` does NOT need `EXPO_PUBLIC_` prefix (backend only)
+- `EXPO_PUBLIC_API_URL` DOES need `EXPO_PUBLIC_` prefix (will be accessible in frontend)
+- Any variable accessed in React Native must have `EXPO_PUBLIC_` prefix
+
+---
+
+### STEP 3: Update app.config.js
+
+Make sure `app.config.js` reads the API URL correctly:
+
+```bash
+cd rn
+
+# Check current app.config.js
+cat app.config.js | grep -A 5 "extra:"
+```
+
+Update `rn/app.config.js` to include API URL in extra config:
+
+```javascript
+export default {
+  expo: {
+    name: "PAN!C",
+    slug: "panic-app",
+    version: "1.0.0",
+    
+    owner: process.env.EXPO_OWNER || "default",
+    extra: {
+      projectId: process.env.EXPO_PROJECT_ID || "YOUR_PROJECT_ID",
+      apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://localhost:3001/api",
+      environment: process.env.EXPO_PUBLIC_ENVIRONMENT || "development",
+    },
+
+    // ... rest of config
+  },
+};
+```
+
+---
+
+### STEP 4: Update React Native Code to Use Config
+
+Create or update `rn/src/config/api.ts`:
+
+```bash
+mkdir -p rn/src/config
+
+cat > rn/src/config/api.ts << 'EOF'
+import Constants from 'expo-constants';
+
+export const API_URL = 
+  Constants.expoConfig?.extra?.apiUrl || 
+  process.env.EXPO_PUBLIC_API_URL || 
+  'http://localhost:3001/api';
+
+export const ENVIRONMENT =
+  Constants.expoConfig?.extra?.environment ||
+  process.env.EXPO_PUBLIC_ENVIRONMENT ||
+  'development';
+
+console.log('🔌 API Config:', {
+  API_URL,
+  ENVIRONMENT,
+});
+
+export default {
+  API_URL,
+  ENVIRONMENT,
+};
+EOF
+
+echo "✅ Created api.ts config"
+```
+
+---
+
+### STEP 5: Update AuthContext to Use Config
+
+In `rn/src/context/AuthContext.tsx`, update API calls:
+
+```typescript
+// At the top, import the config:
+import { API_URL } from '../config/api';
+
+// Then in your API calls, replace:
+// OLD: fetch('/api/auth/login', ...)
+// NEW: fetch(`${API_URL}/auth/login`, ...)
+
+// Example for login function:
+const login = async (email: string, password: string) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {  // ← Use API_URL
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) throw new Error('Login failed');
+
+    const { user: userData, token } = await response.json();
+    await AsyncStorage.setItem('authToken', token);
+    setUser(userData);
+
+    // Register push token after login
+    await registerPushToken(token);
+  } catch (error) {
+    throw error;
+  }
+};
+```
+
+---
+
+### STEP 6: Update All API Calls in React Native
+
+For every fetch call in RN code, use the API_URL config:
+
+```bash
+# Find all fetch calls in RN code
+grep -r "fetch(" rn/src --include="*.tsx" --include="*.ts" | head -20
+```
+
+Update them to use:
+
+```typescript
+// BEFORE:
+fetch('/api/contacts', {...})
+
+// AFTER:
+import { API_URL } from '../config/api';
+fetch(`${API_URL}/contacts`, {...})
+```
+
+Common places to update:
+- `AuthContext.tsx` - all auth endpoints
+- `TimerScreen.tsx` - check-in and panic endpoints
+- `ContactsScreen.tsx` - contacts endpoints
+- Any other screens with API calls
+
+---
+
+### STEP 7: Install Required Dependencies
+
+```bash
+cd rn
+
+# Ensure expo-constants is installed (reads Constants)
+npm install expo-constants
+
+echo "✅ Dependencies installed"
+```
+
+---
+
+### STEP 8: Replit Secrets Configuration
+
+In Replit, click 🔒 **Secrets** and ensure you have:
+
+```
+EXPO_PROJECT_ID = 550e8400-e29b-41d4-a716-446655440000
+EXPO_OWNER = your-expo-username
+EXPO_PUBLIC_API_URL = http://localhost:3001/api
+EXPO_PUBLIC_ENVIRONMENT = development
+```
+
+**For Replit deployment** (when you deploy):
+```
+EXPO_PUBLIC_API_URL = https://your-replit-url.repl.co/api
+```
+
+---
+
+### STEP 9: Verify Backend is Accessible
+
+```bash
+# Make sure backend is running
+npm run dev
+
+# In another terminal, test the backend:
+curl http://localhost:3001/api/health
+
+# Should return:
+# {"status":"ok"}
+```
+
+---
+
+### STEP 10: Clean Rebuild & Restart
+
+```bash
+# Kill existing processes
+pkill -f node
+pkill -f npm
+
+# Wait
+sleep 3
+
+# Clear cache
+cd rn
+npm cache clean --force
+npm install
+
+# Rebuild
+npm run build 2>/dev/null || echo "Build output (may show warnings)"
+
+# Go back and restart
+cd ..
+npm run dev
+```
+
+Expected output:
+```
+✓ Frontend running at http://localhost:5173
+✓ Backend running at http://localhost:3001
+
+✓ Expo build successful
+› Metro Bundler ready
+› QR Code: [QR displayed]
+```
+
+---
+
+### STEP 11: Test with Expo Go
+
+```bash
+# From rn directory
+cd rn
+npx expo start
+
+# Scan QR with phone
+# App should load
+# Check console for:
+# 🔌 API Config: {
+#   API_URL: "http://localhost:3001/api",
+#   ENVIRONMENT: "development"
+# }
+```
+
+---
+
+### STEP 12: Verify Connectivity
+
+In Expo Go, after login:
+
+```javascript
+// Console should show:
+console.log('✅ Attempting login to:', API_URL);
+// console.log('✅ Attempting login to:', 'http://localhost:3001/api');
+
+// If it fails, check:
+// 1. Backend is running (curl http://localhost:3001/api/health)
+// 2. API_URL is correct
+// 3. Network connectivity on device
+// 4. Firewall not blocking port 3001
+```
+
+---
+
+## COMPLETE CHECKLIST
+
+```
+✅ rn/.env created with correct variables
+✅ EXPO_PUBLIC_API_URL has EXPO_PUBLIC_ prefix
+✅ app.config.js reads from environment
+✅ api.ts config file created
+✅ AuthContext imports and uses API_URL
+✅ All API calls use ${API_URL} prefix
+✅ expo-constants installed
+✅ Replit Secrets have all required variables
+✅ Backend running and responding to /api/health
+✅ npm run dev starts successfully
+✅ Expo start works and shows QR code
+✅ App loads in Expo Go
+✅ API calls succeed (check Network tab in DevTools)
+```
+
+---
+
+## TROUBLESHOOTING
+
+### "API_URL is undefined"
+```bash
+# Check if config file exists
+test -f rn/src/config/api.ts && echo "✅ File exists" || echo "❌ Missing"
+
+# Check .env file
+cat rn/.env | grep EXPO_PUBLIC_API_URL
+
+# Verify import in AuthContext
+grep "import.*api" rn/src/context/AuthContext.tsx
+```
+
+### "Cannot connect to backend"
+```bash
+# Verify backend is running
+lsof -i :3001
+# Should show node process listening on 3001
+
+# Test endpoint
+curl http://localhost:3001/api/health
+# Should return {"status":"ok"}
+
+# If port 3001 is in use:
+pkill -f "node.*3001"
+sleep 2
+npm run dev
+```
+
+### "Fetch fails with network error"
+```bash
+# Check if device can reach backend
+# On phone, try to access: http://YOUR_COMPUTER_IP:3001/api/health
+# Find your IP: ipconfig getifaddr en0 (Mac) or ip addr (Linux)
+
+# Update .env with your machine IP for testing:
+echo "EXPO_PUBLIC_API_URL=http://192.168.1.100:3001/api" >> rn/.env
+```
+
+### "Variables not loading"
+```bash
+# Force reload
+rm -rf rn/node_modules
+npm install
+npx expo start --clear
+
+# Check that .env is not in .gitignore
+grep ".env" rn/.gitignore
+# If it is, remove the line or create .env.local
+```
+
+---
+
+## SUMMARY
+
+The fix requires:
+
+1. **Environment variables with `EXPO_PUBLIC_` prefix** for frontend access
+2. **API configuration file** to centralize the URL
+3. **Updated API calls** to use the config instead of hardcoded paths
+4. **Proper Replit Secrets** with all required variables
+5. **Clean rebuild** to load new environment variables
+
+Once complete:
+- ✅ Frontend can communicate with backend
+- ✅ API URL is configurable per environment
+- ✅ Works on localhost for development
+- ✅ Works on Replit URL for production
+- ✅ Both devices can access backend
+
+---
+
+**After these changes, your app will properly connect to the backend!** 🚀
