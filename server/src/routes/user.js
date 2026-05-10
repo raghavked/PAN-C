@@ -16,7 +16,7 @@ router.post('/push-token', requireAuth, async (req, res) => {
     const db = getDB();
     await db.collection('users').updateOne(
       { email: req.userEmail },
-      { $set: { pushToken, pushTokenUpdatedAt: new Date() } }
+      { $set: { pushToken, pushTokenUpdatedAt: new Date(), pushTokenType: 'ExponentPushToken' } }
     );
 
     console.log(`[Push] Token registered for ${req.userEmail}: ${pushToken.substring(0, 45)}...`);
