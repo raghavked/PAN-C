@@ -8,7 +8,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
-import { elevenLabsService } from '../services/elevenLabsService';
+import { elevenLabsService, initAudioSession } from '../services/elevenLabsService';
 import { backboardService } from '../services/backboardService';
 import { solanaService } from '../services/solanaService';
 import { geminiService } from '../services/geminiService';
@@ -48,6 +48,13 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
 
   const soundRef = useRef<{ stopAsync: () => Promise<void>; unloadAsync: () => Promise<void> } | null>(null);
   const incidentIdRef = useRef('');
+  // Prevents duplicate triggers when the button is spammed
+  const isTriggeringRef = useRef(false);
+
+  // Pre-initialize the audio session at app startup so iOS is ready on first press
+  useEffect(() => {
+    initAudioSession().catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!state.isActive) return;
@@ -58,10 +65,17 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
   }, [state.isActive]);
 
   const triggerPanic = useCallback(async (): Promise<string> => {
+    // ── Spam guard: ignore presses while a trigger is already in progress ──
+    if (isTriggeringRef.current || state.isActive) {
+      console.log('[PanicContext] Trigger already in progress or panic active — ignoring');
+      return incidentIdRef.current;
+    }
+    isTriggeringRef.current = true;
+
     const now = new Date();
 
     // ── Fire sound IMMEDIATELY on button press, before any async work ──
-    // This runs in the background; we store the handle when it resolves
+    // elevenLabsService has its own internal guard, so this is safe to call
     elevenLabsService.playPanicAlert().then((sound) => {
       soundRef.current = sound;
     }).catch((e) => console.warn('[PanicContext] ElevenLabs failed:', e));
@@ -146,8 +160,10 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
       incidentIdRef.current = fallbackId;
       setState((prev) => ({ ...prev, incidentId: fallbackId }));
       return fallbackId;
+    } finally {
+      isTriggeringRef.current = false;
     }
-  }, [user]);
+  }, [user, state.isActive]);
 
   const disarmPanic = useCallback(async (safePhrase: string): Promise<boolean> => {
     if (!safePhrase.trim()) return false;
@@ -158,10 +174,9 @@ export const PanicProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
 
-    if (soundRef.current) {
-      await elevenLabsService.stopAlert(soundRef.current);
-      soundRef.current = null;
-    }
+    // stopAlert() with no args uses the internal _currentHandle, handles siren + TTS
+    await elevenLabsService.stopAlert();
+    soundRef.current = null;
 
     const incidentId = incidentIdRef.current;
     const now = new Date();

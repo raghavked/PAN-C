@@ -1,5 +1,5 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Pressable, Linking, Modal,
 } from 'react-native';
@@ -54,6 +54,18 @@ export const HomeScreen: React.FC = () => {
   const { pendingAlert, dismiss } = usePendingAlert();
   const navigation = useNavigation<any>();
   const tabBarHeight = useBottomTabBarHeight();
+  const [isTriggering, setIsTriggering] = useState(false);
+
+  const handlePanicPress = useCallback(async () => {
+    if (isTriggering || isActive) return;
+    setIsTriggering(true);
+    try {
+      await triggerPanic();
+      navigation.navigate('Home');
+    } finally {
+      setIsTriggering(false);
+    }
+  }, [isTriggering, isActive, triggerPanic, navigation]);
 
   return (
     <SafeAreaView style={s.safe} edges={["top","left","right"]}>
@@ -131,8 +143,9 @@ export const HomeScreen: React.FC = () => {
 
         <View style={s.panicWrap}>
           <PanicButton
-            onPress={() => { triggerPanic().then(() => navigation.navigate('Home')); }}
+            onPress={handlePanicPress}
             isActive={isActive}
+            disabled={isTriggering && !isActive}
           />
           {isActive && (
             <Text style={s.incidentHint}>

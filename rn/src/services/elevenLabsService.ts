@@ -5,6 +5,32 @@ const BASE_URL = 'https://api.elevenlabs.io/v1';
 
 type SoundHandle = { stopAsync: () => Promise<void>; unloadAsync: () => Promise<void> };
 
+// ─── Single-play guard ────────────────────────────────────────────────────────
+// Prevents duplicate audio streams when the button is spammed
+let _isPlaying = false;
+let _currentHandle: SoundHandle | null = null;
+
+// ─── Audio session pre-init ───────────────────────────────────────────────────
+// Called once at app startup so iOS audio session is ready before the first press
+let _audioSessionReady = false;
+export async function initAudioSession(): Promise<void> {
+  if (Platform.OS === 'web' || _audioSessionReady) return;
+  try {
+    const { Audio } = await import('expo-av');
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,        // Override iOS silent/ringer switch
+      staysActiveInBackground: true,     // Keep playing when app is backgrounded
+      shouldDuckAndroid: false,          // Don't lower volume for other apps
+      playThroughEarpieceAndroid: false, // Use speaker, not earpiece
+    });
+    _audioSessionReady = true;
+    console.log('[elevenLabsService] Audio session pre-initialized');
+  } catch (e) {
+    console.warn('[elevenLabsService] Audio session pre-init failed:', e);
+  }
+}
+
 async function fetchAudioBase64(text: string): Promise<string> {
   const res = await fetch(`${BASE_URL}/text-to-speech/${config.elevenLabsVoiceId}`, {
     method: 'POST',
@@ -50,43 +76,80 @@ async function playWeb(text: string): Promise<SoundHandle | null> {
 async function playNative(text: string): Promise<SoundHandle | null> {
   const { Audio } = await import('expo-av');
 
-  // Configure audio session FIRST — before loading any audio
-  // playsInSilentModeIOS: true overrides the ringer/silent switch on iOS
-  // staysActiveInBackground: true keeps audio alive when app is backgrounded
-  // interruptionModeIOS: DO_NOT_MIX ensures we take over from other audio
+  // Re-apply audio mode (belt-and-suspenders in case session was reset)
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: false,
-    playsInSilentModeIOS: true,
-    staysActiveInBackground: true,
-    shouldDuckAndroid: false,
-    playThroughEarpieceAndroid: false,
+    playsInSilentModeIOS: true,        // Override iOS silent/ringer switch
+    staysActiveInBackground: true,     // Keep playing when backgrounded
+    shouldDuckAndroid: false,          // Don't duck other audio
+    playThroughEarpieceAndroid: false, // Use loudspeaker
   });
 
-  const base64 = await fetchAudioBase64(text);
-  const uri = `data:audio/mpeg;base64,${base64}`;
+  // ── Step 1: Play local siren IMMEDIATELY (zero network delay) ─────────────
+  let sirenSound: SoundHandle | null = null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const alertAsset = require('../../assets/alert.wav');
+    const { sound: siren } = await Audio.Sound.createAsync(
+      alertAsset,
+      { shouldPlay: true, isLooping: true, volume: 1.0, isMuted: false }
+    );
+    await siren.setVolumeAsync(1.0);
+    sirenSound = siren;
+    _currentHandle = siren; // Update global so disarm works during TTS fetch
+    console.log('[elevenLabsService] Local siren started immediately');
+  } catch (e) {
+    console.warn('[elevenLabsService] Local siren failed, proceeding to TTS:', e);
+  }
 
-  const { sound } = await Audio.Sound.createAsync(
-    { uri },
-    {
-      shouldPlay: true,
-      isLooping: true,
-      volume: 1.0,        // Maximum volume on the sound object
-      isMuted: false,
+  // ── Step 2: Fetch ElevenLabs TTS in background, then swap ─────────────
+  if (!config.elevenLabsApiKey) {
+    // No API key — keep siren looping indefinitely
+    return sirenSound;
+  }
+
+  try {
+    const base64 = await fetchAudioBase64(text);
+    const uri = `data:audio/mpeg;base64,${base64}`;
+
+    // Stop the siren before starting TTS
+    if (sirenSound) {
+      try { await sirenSound.stopAsync(); await sirenSound.unloadAsync(); } catch {}
+      sirenSound = null;
     }
-  );
 
-  // Explicitly set volume to 1.0 after creation as well (belt-and-suspenders)
-  await sound.setVolumeAsync(1.0);
+    // If audio was stopped while fetching (user disarmed), bail out
+    if (!_isPlaying) return null;
 
-  return sound;
+    const { sound: tts } = await Audio.Sound.createAsync(
+      { uri },
+      { shouldPlay: true, isLooping: true, volume: 1.0, isMuted: false }
+    );
+    await tts.setVolumeAsync(1.0);
+    _currentHandle = tts;
+    console.log('[elevenLabsService] Swapped to ElevenLabs TTS');
+    return tts;
+  } catch (err) {
+    console.error('[elevenLabsService] TTS fetch failed, keeping siren:', err);
+    return sirenSound; // Fall back to siren if TTS fails
+  }
 }
 
 export const elevenLabsService = {
+  /**
+   * Play the panic alert audio.
+   * - Spam-safe: if already playing/loading, returns the existing handle immediately.
+   * - Native: plays local siren instantly, then swaps to ElevenLabs TTS when loaded.
+   * - Overrides iOS silent switch and Android audio focus.
+   */
   async playPanicAlert(language = 'English'): Promise<SoundHandle | null> {
-    if (!config.elevenLabsApiKey) {
-      console.warn('[elevenLabsService] No API key — skipping voice alert');
-      return null;
+    // ── Spam guard: only one audio stream at a time ────────────────────────
+    if (_isPlaying) {
+      console.log('[elevenLabsService] Already playing — ignoring duplicate call');
+      return _currentHandle;
     }
+    _isPlaying = true;
+    _currentHandle = null;
 
     const text =
       language === 'Spanish'
@@ -94,24 +157,39 @@ export const elevenLabsService = {
         : 'HELP. ICE. I am in danger. Please call my emergency contacts now.';
 
     try {
+      let handle: SoundHandle | null;
       if (Platform.OS === 'web') {
-        return await playWeb(text);
+        handle = await playWeb(text);
       } else {
-        return await playNative(text);
+        handle = await playNative(text);
       }
+      _currentHandle = handle;
+      return handle;
     } catch (err) {
       console.error('[elevenLabsService] Failed to play alert:', err);
+      _isPlaying = false;
+      _currentHandle = null;
       return null;
     }
   },
 
-  async stopAlert(sound: SoundHandle | null): Promise<void> {
-    if (!sound) return;
+  /**
+   * Stop and unload the current alert audio.
+   * Resets the single-play guard so the next panic can play fresh.
+   */
+  async stopAlert(sound?: SoundHandle | null): Promise<void> {
+    _isPlaying = false;
+    const target = sound ?? _currentHandle;
+    _currentHandle = null;
+    if (!target) return;
     try {
-      await sound.stopAsync();
-      await sound.unloadAsync();
+      await target.stopAsync();
+      await target.unloadAsync();
     } catch (e) {
       console.warn('[elevenLabsService] Error stopping sound:', e);
     }
   },
+
+  /** Expose guard state for debugging */
+  get isPlaying() { return _isPlaying; },
 };
