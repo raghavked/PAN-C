@@ -35,6 +35,9 @@ module.exports = {
         },
       ],
     ],
+    web: {
+      bundler: 'metro',
+    },
     newArchEnabled: false,
     extra: {
       elevenLabsApiKey:    process.env.ELEVENLABS_API_KEY    || '',
