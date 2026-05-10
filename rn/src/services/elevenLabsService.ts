@@ -30,6 +30,7 @@ async function fetchAudioBase64(text: string): Promise<string> {
 }
 
 async function playWeb(text: string): Promise<SoundHandle | null> {
+  // Unlock audio context immediately on user gesture
   const unlock = new (window as any).Audio();
   unlock.play().catch(() => {});
 
@@ -37,6 +38,7 @@ async function playWeb(text: string): Promise<SoundHandle | null> {
   const uri = `data:audio/mpeg;base64,${base64}`;
   const audio = new (window as any).Audio(uri) as HTMLAudioElement;
   audio.loop = true;
+  audio.volume = 1.0;
   await audio.play();
 
   return {
@@ -48,14 +50,34 @@ async function playWeb(text: string): Promise<SoundHandle | null> {
 async function playNative(text: string): Promise<SoundHandle | null> {
   const { Audio } = await import('expo-av');
 
+  // Configure audio session FIRST — before loading any audio
+  // playsInSilentModeIOS: true overrides the ringer/silent switch on iOS
+  // staysActiveInBackground: true keeps audio alive when app is backgrounded
+  // interruptionModeIOS: DO_NOT_MIX ensures we take over from other audio
   await Audio.setAudioModeAsync({
     allowsRecordingIOS: false,
     playsInSilentModeIOS: true,
+    staysActiveInBackground: true,
+    shouldDuckAndroid: false,
+    playThroughEarpieceAndroid: false,
   });
 
   const base64 = await fetchAudioBase64(text);
   const uri = `data:audio/mpeg;base64,${base64}`;
-  const { sound } = await Audio.Sound.createAsync({ uri }, { shouldPlay: true, isLooping: true });
+
+  const { sound } = await Audio.Sound.createAsync(
+    { uri },
+    {
+      shouldPlay: true,
+      isLooping: true,
+      volume: 1.0,        // Maximum volume on the sound object
+      isMuted: false,
+    }
+  );
+
+  // Explicitly set volume to 1.0 after creation as well (belt-and-suspenders)
+  await sound.setVolumeAsync(1.0);
+
   return sound;
 }
 
