@@ -1,35 +1,35 @@
 export const colors = {
-  // Primary
-  primary: '#E24B4A',
-  primaryDark: '#C73D3C',
-  primaryLight: '#FF6B6A',
+  // Action red (primary-container in design)
+  primary: '#f85b58',
+  primarySoft: '#ffb3ae',
+  primaryGlow: 'rgba(248, 91, 88, 0.3)',
+  primaryPulse: 'rgba(248, 91, 88, 0.15)',
 
-  // Background hierarchy
+  // Text on red button/badge
+  onPrimary: '#5c0009',
+
+  // Background hierarchy (tonal layering)
   background: '#131313',
-  surface: '#1E1E1E',
-  surfaceElevated: '#252525',
-  surfaceBorder: '#2E2E2E',
+  surface: '#1b1b1b',
+  surfaceContainer: '#1f1f1f',
+  surfaceElevated: '#2a2a2a',
+  surfaceHighest: '#353535',
+  surfaceBorder: '#353535',
+  outlineVariant: '#59413f',
+  outline: '#a98987',
 
   // Text
-  textPrimary: '#FFFFFF',
-  textSecondary: '#A0A0A0',
-  textMuted: '#606060',
+  textPrimary: '#e2e2e2',
+  textSecondary: '#c6c6c7',
+  textMuted: '#808080',
   textInverse: '#131313',
 
   // Status
   success: '#4CAF50',
-  successLight: '#81C784',
   warning: '#FF9800',
-  warningLight: '#FFB74D',
-  danger: '#E24B4A',
-  dangerLight: '#EF9A9A',
+  danger: '#f85b58',
   info: '#2196F3',
-  infoLight: '#64B5F6',
-
-  // Panic state
-  panicRed: '#E24B4A',
-  panicRedGlow: 'rgba(226, 75, 74, 0.3)',
-  panicRedPulse: 'rgba(226, 75, 74, 0.15)',
+  error: '#ffb4ab',
 
   // Utility
   white: '#FFFFFF',

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Emergency Contacts - Sentinel</title>
+<!-- Google Fonts: Atkinson Hyperlegible Next & Material Symbols -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,200..800;1,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#303030",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "primary-fixed-dim": "#ffb3ae",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-error": "#690005",
+                        "surface-bright": "#393939",
+                        "primary": "#ffb3ae",
+                        "primary-fixed": "#ffdad7",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "background": "#131313",
+                        "on-background": "#e2e2e2",
+                        "inverse-primary": "#b3282c",
+                        "surface-variant": "#353535",
+                        "error": "#ffb4ab",
+                        "surface-container": "#1f1f1f",
+                        "surface-container-high": "#2a2a2a",
+                        "tertiary-container": "#929090",
+                        "tertiary-fixed": "#e5e2e1",
+                        "outline": "#a98987",
+                        "surface-dim": "#131313",
+                        "surface-container-low": "#1b1b1b",
+                        "on-primary-container": "#5c0009",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-surface": "#e2e2e2",
+                        "on-tertiary-container": "#2a2a2a",
+                        "secondary": "#c6c6c7",
+                        "secondary-container": "#454747",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-tertiary": "#303030",
+                        "on-primary": "#68000c",
+                        "surface": "#131313",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-secondary": "#2f3131",
+                        "on-surface-variant": "#e1bebc",
+                        "primary-container": "#f85b58",
+                        "on-secondary-container": "#b4b5b5",
+                        "surface-tint": "#ffb3ae",
+                        "on-primary-fixed": "#410004",
+                        "outline-variant": "#59413f",
+                        "surface-container-highest": "#353535",
+                        "tertiary": "#c8c6c5",
+                        "error-container": "#93000a",
+                        "on-error-container": "#ffdad6",
+                        "inverse-surface": "#e2e2e2",
+                        "on-primary-fixed-variant": "#900a18"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-desktop": "32px",
+                        "container-max": "1280px",
+                        "gutter": "16px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Atkinson Hyperlegible Next", "sans-serif"],
+                        "body-lg": ["Atkinson Hyperlegible Next", "sans-serif"],
+                        "label-md": ["Atkinson Hyperlegible Next", "sans-serif"],
+                        "headline-md": ["Atkinson Hyperlegible Next", "sans-serif"],
+                        "display-lg": ["Atkinson Hyperlegible Next", "sans-serif"],
+                        "headline-lg": ["Atkinson Hyperlegible Next", "sans-serif"],
+                        "label-lg": ["Atkinson Hyperlegible Next", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                        "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md min-h-screen selection:bg-primary-container selection:text-white antialiased flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center h-16 px-4 bg-background border-b border-surface-variant">
+<!-- Mobile Left (Avatar) -->
+<div class="md:hidden flex items-center">
+<img alt="User profile photo" class="w-8 h-8 rounded-full border border-surface-variant object-cover" data-alt="A close up, high contrast digital portrait of a tactical operator used as a profile avatar. The subject is dimly lit against a pitch black background, creating a moody, intense atmosphere consistent with a dark mode UI. Soft, dramatic rim lighting outlines their features. The aesthetic is serious, modern, and clinical." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeMCO7SvMzhEHjyWoENJaPfM_08ru6998wpZmKEuOqO3pFTGs4Vo1utxY6tncCev4ntxlrGAD7lHu6VBkO7qPGRbB8E-2gaBJxR06CqJZq3OkICzGVFXm_lVl6HaWGgmIvPcan01ulB7A9fno1z97MnkEGaRVv0QdTq8ERdK4dyuQiNW61_a9QROWNKJaV-78fxVqf-96eqOk6uTijGRE7-XO8yPwJEB0LtXZE0SPIXYuJg_5prMMCqwf9lk3dgyfPsl4RpUmO8dE"/>
+</div>
+<!-- Brand -->
+<div class="flex items-center gap-8">
+<span class="font-headline-md text-headline-md font-extrabold tracking-tighter text-primary-container">SENTINEL</span>
+<!-- Desktop Navigation -->
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-on-surface hover:bg-surface-container-high transition-colors px-3 py-1 rounded font-label-lg text-label-lg uppercase" href="#">Panic</a>
+<a class="text-on-surface hover:bg-surface-container-high transition-colors px-3 py-1 rounded font-label-lg text-label-lg uppercase" href="#">Timer</a>
+<a class="text-primary-container font-bold hover:bg-surface-container-high transition-colors px-3 py-1 rounded font-label-lg text-label-lg uppercase" href="#">Contacts</a>
+<a class="text-on-surface hover:bg-surface-container-high transition-colors px-3 py-1 rounded font-label-lg text-label-lg uppercase" href="#">Rights</a>
+</nav>
+</div>
+<!-- Trailing Action -->
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-high transition-colors text-on-surface active:scale-95 duration-75">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-24 pb-28 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
+<!-- Page Header & Global Action -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface mb-2">Emergency Contacts</h1>
+<p class="font-body-md text-body-md text-secondary">Manage authorized personnel and their operational permissions.</p>
+</div>
+<button class="bg-primary-container text-white font-label-lg text-label-lg uppercase px-6 py-3 rounded hover:bg-primary transition-colors flex items-center justify-center gap-2 active:scale-95 duration-75 flex-shrink-0 shadow-[0_0_15px_rgba(248,91,88,0.2)]">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">add</span>
+                Add Contact
+            </button>
+</div>
+<!-- Contacts Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-gutter">
+<!-- Card 1: Sarah Jenkins -->
+<article class="bg-surface-container border border-surface-variant rounded-lg p-6 flex flex-col gap-5 hover:bg-surface-container-highest transition-colors group relative overflow-hidden">
+<!-- Red top accent line to signify active/important card -->
+<div class="absolute top-0 left-0 w-full h-1 bg-primary-container"></div>
+<header class="flex items-center gap-4">
+<img alt="Sarah Jenkins" class="w-12 h-12 rounded-full border border-surface-variant object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all" data-alt="A high contrast, moody portrait photo of a professional woman with dark hair, used as an avatar in a tactical dark mode interface. The background is pure black. Lighting is dramatic and directional, emphasizing a serious, focused expression. The image feels raw and unedited, aligning with a high-stakes, mission-critical aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBovdRswunBGjxSiDzyp5ldy1felzh7_Z3zA-OSgo0tg0vC6tAcnIQylat0s-M_i8vY63Qn9bTm9fmf6hO6Ndn4QV3A5iGmG-MIXYpbV_mEqgwMQbDsNNrY3up8N3JBtrSBWe_5Ttw84QllxM7_kPsKOs-StlwhvNUMOnWGaQe1SefhRL3FAzDStWfxJemt2ISu0dBLqZGwzOfwlfgZKMaK3K60095y9WMdZdvHG1u-njnk4CPpSxzhiazLkoRXLfRZ3lUi996HZ2Y"/>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface leading-tight">Sarah Jenkins</h2>
+<span class="font-label-md text-label-md text-primary uppercase tracking-wider">Next of Kin</span>
+</div>
+</header>
+<div class="w-full h-px bg-surface-variant"></div>
+<div class="flex flex-col gap-4 flex-grow">
+<!-- Permission Level -->
+<div>
+<span class="font-label-md text-label-md text-primary uppercase block mb-1">Permission Level</span>
+<div class="flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-primary-container text-[18px]">verified_user</span>
+<span class="font-body-md text-body-md">Level 1 (Full Access &amp; Override)</span>
+</div>
+</div>
+<!-- Active Channels -->
+<div>
+<span class="font-label-md text-label-md text-primary uppercase block mb-2">Active Channels</span>
+<div class="flex flex-wrap gap-2">
+<div class="bg-primary-container/10 border border-primary-container text-primary-container px-2 py-1 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sms</span>
+<span class="font-label-md text-label-md uppercase">SMS Alerts</span>
+</div>
+<div class="bg-primary-container/10 border border-primary-container text-primary-container px-2 py-1 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+<span class="font-label-md text-label-md uppercase">Live Location</span>
+</div>
+</div>
+</div>
+</div>
+<button class="mt-2 w-full border border-surface-variant hover:border-primary-container text-on-surface hover:text-primary-container px-4 py-2 rounded font-label-lg text-label-lg uppercase transition-colors">
+                    Manage Access
+                </button>
+</article>
+<!-- Card 2: Michael Doe -->
+<article class="bg-surface-container border border-surface-variant rounded-lg p-6 flex flex-col gap-5 hover:bg-surface-container-highest transition-colors group relative overflow-hidden">
+<header class="flex items-center gap-4">
+<div class="w-12 h-12 rounded-full border border-surface-variant bg-surface-variant flex items-center justify-center text-secondary font-headline-md">MD</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface leading-tight">Michael Doe</h2>
+<span class="font-label-md text-label-md text-primary uppercase tracking-wider">Legal Counsel</span>
+</div>
+</header>
+<div class="w-full h-px bg-surface-variant"></div>
+<div class="flex flex-col gap-4 flex-grow">
+<!-- Permission Level -->
+<div>
+<span class="font-label-md text-label-md text-primary uppercase block mb-1">Permission Level</span>
+<div class="flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-secondary text-[18px]">gavel</span>
+<span class="font-body-md text-body-md text-secondary">Level 2 (Notifications Only)</span>
+</div>
+</div>
+<!-- Active Channels -->
+<div>
+<span class="font-label-md text-label-md text-primary uppercase block mb-2">Active Channels</span>
+<div class="flex flex-wrap gap-2">
+<div class="bg-primary-container/10 border border-primary-container text-primary-container px-2 py-1 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sms</span>
+<span class="font-label-md text-label-md uppercase">SMS Alerts</span>
+</div>
+<div class="bg-surface-variant border border-transparent text-secondary px-2 py-1 rounded flex items-center gap-1 opacity-50">
+<span class="material-symbols-outlined text-[14px]">location_off</span>
+<span class="font-label-md text-label-md uppercase line-through">Location</span>
+</div>
+</div>
+</div>
+</div>
+<button class="mt-2 w-full border border-surface-variant hover:border-primary-container text-on-surface hover:text-primary-container px-4 py-2 rounded font-label-lg text-label-lg uppercase transition-colors">
+                    Manage Access
+                </button>
+</article>
+<!-- Card 3: Alex Mercer -->
+<article class="bg-surface-container border border-surface-variant rounded-lg p-6 flex flex-col gap-5 hover:bg-surface-container-highest transition-colors group relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-1 bg-primary-container"></div>
+<header class="flex items-center gap-4">
+<img alt="Alex Mercer" class="w-12 h-12 rounded-full border border-surface-variant object-cover grayscale opacity-80 group-hover:grayscale-0 transition-all" data-alt="A black and white, high contrast portrait photo of a man with short hair and a neutral expression, used as an avatar in a tactical dark mode interface. The background is pure black. The lighting creates sharp shadows on his face, emphasizing a serious, focused mood. The aesthetic is raw, modern, and clinical." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHc3gqdDqhT93Y8eQO5m7nJ5znPUrmbIkD_WqVaKbYMN0gApP-yxWA3SHF210Zx0VZogfnZa8_-nvOB3lwP-kfaK25_F7rrvC8NpbiYhWDW3Aq0G6B5eCPAW8Hw1OGICMcsT74KT09UNwH0P_jek4MMRYETKZO-PCVorESbdBG4SrDBxF81tRFrR3cx6Ynxk9trPIUrAC5kVN7kmrjXNmEt9kMQ2XUKioavSvJSIwFbL28hxyNmyrvJ8oC0CTevDK2zAj9LsLxubM"/>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface leading-tight">Alex Mercer</h2>
+<span class="font-label-md text-label-md text-primary uppercase tracking-wider">Emergency Proxy</span>
+</div>
+</header>
+<div class="w-full h-px bg-surface-variant"></div>
+<div class="flex flex-col gap-4 flex-grow">
+<!-- Permission Level -->
+<div>
+<span class="font-label-md text-label-md text-primary uppercase block mb-1">Permission Level</span>
+<div class="flex items-center gap-2 text-on-surface">
+<span class="material-symbols-outlined text-primary-container text-[18px]">verified_user</span>
+<span class="font-body-md text-body-md">Level 1 (Full Access &amp; Override)</span>
+</div>
+</div>
+<!-- Active Channels -->
+<div>
+<span class="font-label-md text-label-md text-primary uppercase block mb-2">Active Channels</span>
+<div class="flex flex-wrap gap-2">
+<div class="bg-primary-container/10 border border-primary-container text-primary-container px-2 py-1 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sms</span>
+<span class="font-label-md text-label-md uppercase">SMS Alerts</span>
+</div>
+<div class="bg-primary-container/10 border border-primary-container text-primary-container px-2 py-1 rounded flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+<span class="font-label-md text-label-md uppercase">Live Location</span>
+</div>
+</div>
+</div>
+</div>
+<button class="mt-2 w-full border border-surface-variant hover:border-primary-container text-on-surface hover:text-primary-container px-4 py-2 rounded font-label-lg text-label-lg uppercase transition-colors">
+                    Manage Access
+                </button>
+</article>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-margin-mobile bg-surface-container border-t-2 border-outline-variant">
+<button class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded-lg w-full h-full">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">emergency</span>
+<span class="font-label-lg text-label-lg uppercase text-[10px]">Panic</span>
+</button>
+<button class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded-lg w-full h-full">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">timer</span>
+<span class="font-label-lg text-label-lg uppercase text-[10px]">Timer</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-lg px-4 py-1 active:scale-90 transition-transform duration-100 ease-in-out h-[85%] w-full max-w-[80px]">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">group</span>
+<span class="font-label-lg text-label-lg uppercase text-[10px] font-bold">Contacts</span>
+</button>
+<button class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded-lg w-full h-full">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 0;">gavel</span>
+<span class="font-label-lg text-label-lg uppercase text-[10px]">Rights</span>
+</button>
+</nav>
+</body></html>

@@ -1,113 +1,181 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, SafeAreaView,
+  View, Text, ScrollView, StyleSheet, SafeAreaView, Pressable, Animated,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { PanicButton } from '../components/panic/PanicButton';
-import { Card } from '../components/cards/Card';
-import { StatusBadge } from '../components/common/StatusBadge';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, radius } from '../theme';
 import { usePanic } from '../hooks/usePanic';
+
+const ACTIVITY = [
+  { icon: '📍', label: 'Location Updated', sub: 'Coordinates synced successfully.', time: '10:42 AM' },
+  { icon: '⚖️', label: 'Rights Accessed', sub: "Document 'Stop & ID' viewed.", time: 'YESTERDAY' },
+  { icon: '⏱', label: 'Timer Cancelled', sub: 'Safety check-in dismissed.', time: 'OCT 12' },
+];
 
 export const HomeScreen: React.FC = () => {
   const { isActive, contactsNotified, incidentId, triggerPanic } = usePanic();
+  const navigation = useNavigation<any>();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isActive) { pulseAnim.setValue(1); return; }
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [isActive]);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.appName}>PAN!C</Text>
-          <StatusBadge status={isActive ? 'active' : 'safe'} label={isActive ? 'ALERT ACTIVE' : 'SAFE'} />
+    <SafeAreaView style={s.safe}>
+      {/* Top App Bar */}
+      <View style={s.topBar}>
+        <View style={s.avatarBtn}>
+          <Text style={s.avatarText}>A</Text>
+        </View>
+        <Text style={s.appName}>PAN!C</Text>
+        <Pressable style={s.settingsBtn}>
+          <Text style={s.settingsIcon}>⚙️</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+
+        {/* Status Card */}
+        <View style={s.statusCard}>
+          <View style={s.statusLeft}>
+            <Text style={s.statusIcon}>🛡️</Text>
+            <Text style={s.statusLabel}>{isActive ? 'ALERT ACTIVE' : 'PROTECTED'}</Text>
+          </View>
+          <View style={s.statusBadge}>
+            <Text style={s.statusBadgeText}>{isActive ? 'ACTIVE' : 'READY'}</Text>
+          </View>
         </View>
 
         {/* Panic Button */}
-        <View style={styles.panicSection}>
-          <PanicButton onPress={triggerPanic} isActive={isActive} />
-          <Text style={styles.panicHint}>
-            {isActive
-              ? `Incident ${incidentId} — ${contactsNotified} contacts notified`
-              : 'Press to send emergency alert to your contacts'}
-          </Text>
+        <View style={s.panicWrap}>
+          <PanicButton onPress={() => { triggerPanic().then(() => navigation.navigate('Alert')); }} isActive={isActive} />
+          {isActive && (
+            <Text style={s.incidentHint}>Incident {incidentId} · {contactsNotified} contacts notified</Text>
+          )}
         </View>
 
-        {/* Status Cards */}
-        <View style={styles.cards}>
-          <Card style={styles.cardRow}>
-            <Text style={styles.cardIcon}>👥</Text>
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>Emergency Contacts</Text>
-              <Text style={styles.cardSub}>4 contacts ready</Text>
-            </View>
-            <StatusBadge status="safe" label="Ready" />
-          </Card>
-
-          <Card style={styles.cardRow}>
-            <Text style={styles.cardIcon}>📄</Text>
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>Documents</Text>
-              <Text style={styles.cardSub}>3 documents stored</Text>
-            </View>
-            <StatusBadge status="warning" label="1 Expiring" />
-          </Card>
-
-          <Card style={styles.cardRow}>
-            <Text style={styles.cardIcon}>⚖️</Text>
-            <View style={styles.cardText}>
-              <Text style={styles.cardTitle}>Know Your Rights</Text>
-              <Text style={styles.cardSub}>AI-powered guidance</Text>
-            </View>
-            <StatusBadge status="info" label="Ready" />
-          </Card>
+        {/* 2×2 Grid */}
+        <View style={s.grid}>
+          {[
+            { icon: '⏱', label: 'TIMER', tab: 'Timer' },
+            { icon: '📄', label: 'DOCUMENTS', tab: 'Rights' },
+            { icon: '👥', label: 'CONTACTS', tab: 'Contacts' },
+            { icon: '⚖️', label: 'RIGHTS', tab: 'Rights' },
+          ].map((item) => (
+            <Pressable
+              key={item.tab + item.label}
+              style={({ pressed }) => [s.gridTile, pressed && s.gridTilePressed]}
+              onPress={() => navigation.navigate(item.tab)}
+            >
+              <Text style={s.gridIcon}>{item.icon}</Text>
+              <Text style={s.gridLabel}>{item.label}</Text>
+            </Pressable>
+          ))}
         </View>
 
-        {/* Rights Reminder */}
-        <Card style={styles.rightsCard}>
-          <Text style={styles.rightsTitle}>🛡️ Your Rights</Text>
-          <Text style={styles.rightsText}>
-            You have the right to remain silent. You do not have to answer questions about
-            immigration status. You have the right to speak with a lawyer. Do not sign any
-            documents without legal counsel.
-          </Text>
-        </Card>
+        {/* Recent Activity */}
+        <Text style={s.sectionTitle}>RECENT ACTIVITY</Text>
+        {ACTIVITY.map((a, i) => (
+          <View key={i} style={s.activityRow}>
+            <View style={s.activityIcon}>
+              <Text>{a.icon}</Text>
+            </View>
+            <View style={s.activityInfo}>
+              <Text style={s.activityLabel}>{a.label.toUpperCase()}</Text>
+              <Text style={s.activitySub}>{a.sub}</Text>
+            </View>
+            <Text style={s.activityTime}>{a.time}</Text>
+          </View>
+        ))}
+
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.md, height: 56,
+    borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
+    backgroundColor: colors.background,
+  },
+  avatarBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: colors.surfaceElevated, borderWidth: 1, borderColor: colors.surfaceBorder,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { ...typography.label, color: colors.textPrimary },
+  appName: {
+    fontSize: 22, fontWeight: '800', color: colors.primary,
+    letterSpacing: -0.5, textTransform: 'uppercase',
+  },
+  settingsBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  settingsIcon: { fontSize: 20 },
   scroll: { flex: 1 },
-  content: { padding: spacing.md, paddingBottom: spacing.xxxl },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
+  content: { padding: spacing.md, paddingBottom: 100, gap: spacing.md },
+  statusCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.surfaceContainer, borderWidth: 1, borderColor: colors.surfaceBorder,
+    borderRadius: radius.md, padding: spacing.md,
   },
-  appName: { ...typography.h2, color: colors.primary },
-  panicSection: { alignItems: 'center', marginBottom: spacing.xl },
-  panicHint: {
-    ...typography.bodySm,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.md,
-    maxWidth: 280,
+  statusLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  statusIcon: { fontSize: 20 },
+  statusLabel: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase' },
+  statusBadge: {
+    paddingHorizontal: 12, paddingVertical: 4,
+    backgroundColor: colors.surfaceHighest, borderRadius: radius.full,
+    borderWidth: 1, borderColor: colors.surfaceBorder,
   },
-  cards: { gap: spacing.sm, marginBottom: spacing.md },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  statusBadgeText: {
+    fontSize: 11, fontWeight: '700', color: colors.textSecondary,
+    letterSpacing: 1.5, textTransform: 'uppercase',
   },
-  cardIcon: { fontSize: 24 },
-  cardText: { flex: 1 },
-  cardTitle: { ...typography.label, color: colors.textPrimary },
-  cardSub: { ...typography.bodySm, color: colors.textSecondary },
-  rightsCard: { marginTop: spacing.sm },
-  rightsTitle: { ...typography.h4, color: colors.textPrimary, marginBottom: spacing.sm },
-  rightsText: { ...typography.body, color: colors.textSecondary, lineHeight: 22 },
+  panicWrap: { alignItems: 'center', paddingVertical: spacing.xl },
+  incidentHint: {
+    ...typography.bodySm, color: colors.textSecondary,
+    textAlign: 'center', marginTop: spacing.sm,
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  gridTile: {
+    width: '48%', backgroundColor: colors.surfaceContainer,
+    borderWidth: 1, borderColor: colors.surfaceBorder,
+    borderRadius: radius.md, padding: spacing.md,
+    minHeight: 100, justifyContent: 'space-between',
+  },
+  gridTilePressed: { backgroundColor: colors.surfaceElevated },
+  gridIcon: { fontSize: 24, marginBottom: spacing.sm },
+  gridLabel: {
+    fontSize: 18, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase',
+  },
+  sectionTitle: {
+    fontSize: 14, fontWeight: '700', color: colors.textPrimary,
+    letterSpacing: 1, textTransform: 'uppercase',
+    borderBottomWidth: 1, borderBottomColor: colors.surfaceBorder,
+    paddingBottom: spacing.sm, marginTop: spacing.sm,
+  },
+  activityRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.surfaceBorder,
+    borderRadius: radius.md, padding: spacing.md,
+  },
+  activityIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: colors.surfaceHighest, alignItems: 'center', justifyContent: 'center',
+  },
+  activityInfo: { flex: 1 },
+  activityLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary, textTransform: 'uppercase' },
+  activitySub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  activityTime: { fontSize: 11, fontWeight: '600', color: colors.textSecondary, textTransform: 'uppercase' },
 });

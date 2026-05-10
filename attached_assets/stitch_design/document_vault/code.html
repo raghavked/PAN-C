@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Document Vault - Sentinel</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,600;0,700;0,800;1,400&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                            "inverse-on-surface": "#303030",
+                            "on-tertiary-fixed-variant": "#474746",
+                            "tertiary-fixed-dim": "#c8c6c5",
+                            "primary-fixed-dim": "#ffb3ae",
+                            "surface-container-lowest": "#0e0e0e",
+                            "on-error": "#690005",
+                            "surface-bright": "#393939",
+                            "primary": "#ffb3ae",
+                            "primary-fixed": "#ffdad7",
+                            "on-secondary-fixed": "#1a1c1c",
+                            "on-tertiary-fixed": "#1b1c1c",
+                            "background": "#131313",
+                            "on-background": "#e2e2e2",
+                            "inverse-primary": "#b3282c",
+                            "surface-variant": "#353535",
+                            "error": "#ffb4ab",
+                            "surface-container": "#1f1f1f",
+                            "surface-container-high": "#2a2a2a",
+                            "tertiary-container": "#929090",
+                            "tertiary-fixed": "#e5e2e1",
+                            "outline": "#a98987",
+                            "surface-dim": "#131313",
+                            "surface-container-low": "#1b1b1b",
+                            "on-primary-container": "#5c0009",
+                            "on-secondary-fixed-variant": "#454747",
+                            "on-surface": "#e2e2e2",
+                            "on-tertiary-container": "#2a2a2a",
+                            "secondary": "#c6c6c7",
+                            "secondary-container": "#454747",
+                            "secondary-fixed-dim": "#c6c6c7",
+                            "on-tertiary": "#303030",
+                            "on-primary": "#68000c",
+                            "surface": "#131313",
+                            "secondary-fixed": "#e2e2e2",
+                            "on-secondary": "#2f3131",
+                            "on-surface-variant": "#e1bebc",
+                            "primary-container": "#f85b58",
+                            "on-secondary-container": "#b4b5b5",
+                            "surface-tint": "#ffb3ae",
+                            "on-primary-fixed": "#410004",
+                            "outline-variant": "#59413f",
+                            "surface-container-highest": "#353535",
+                            "tertiary": "#c8c6c5",
+                            "error-container": "#93000a",
+                            "on-error-container": "#ffdad6",
+                            "inverse-surface": "#e2e2e2",
+                            "on-primary-fixed-variant": "#900a18"
+                    },
+                    "borderRadius": {
+                            "DEFAULT": "0.25rem",
+                            "lg": "0.5rem",
+                            "xl": "0.75rem",
+                            "full": "9999px"
+                    },
+                    "spacing": {
+                            "unit": "4px",
+                            "margin-desktop": "32px",
+                            "container-max": "1280px",
+                            "gutter": "16px",
+                            "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                            "body-md": ["Atkinson Hyperlegible Next"],
+                            "body-lg": ["Atkinson Hyperlegible Next"],
+                            "label-md": ["Atkinson Hyperlegible Next"],
+                            "headline-md": ["Atkinson Hyperlegible Next"],
+                            "display-lg": ["Atkinson Hyperlegible Next"],
+                            "headline-lg": ["Atkinson Hyperlegible Next"],
+                            "label-lg": ["Atkinson Hyperlegible Next"]
+                    },
+                    "fontSize": {
+                            "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                            "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                            "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                            "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                            "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                            "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "700"}],
+                            "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 flex justify-between items-center w-full px-4 h-16 bg-background border-b border-surface-variant z-50 flat no shadows tonal layering">
+<div class="flex items-center gap-4">
+<!-- Leading Avatar Placeholder -->
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center border border-outline-variant overflow-hidden">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">person</span>
+</div>
+<!-- Brand -->
+<div class="font-headline-md text-headline-md font-extrabold tracking-tighter text-primary-container uppercase">SENTINEL</div>
+</div>
+<!-- Desktop Navigation Cluster (Hidden on Mobile) -->
+<nav class="hidden md:flex items-center gap-8 absolute left-1/2 transform -translate-x-1/2">
+<a class="font-label-lg text-label-lg uppercase text-on-surface hover:text-primary-container transition-colors" href="#">Panic</a>
+<a class="font-label-lg text-label-lg uppercase text-on-surface hover:text-primary-container transition-colors" href="#">Timer</a>
+<a class="font-label-lg text-label-lg uppercase text-on-surface hover:text-primary-container transition-colors" href="#">Contacts</a>
+<!-- Active Tab: Rights (Contextually mapped to Document Vault) -->
+<a class="font-label-lg text-label-lg uppercase text-primary-container font-bold border-b-2 border-primary-container pb-1" href="#">Rights</a>
+</nav>
+<!-- Trailing Icon -->
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors active:scale-95 text-primary-container">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 pb-32 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface uppercase mb-2">Vault</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl">Secure encrypted storage for critical identity and legal documentation. Required for immediate deployment.</p>
+</div>
+<!-- Primary Action: Upload Document -->
+<button class="bg-primary-container text-on-primary-container font-label-lg text-label-lg uppercase py-4 px-8 rounded flex items-center justify-center gap-3 hover:bg-surface-tint transition-colors active:scale-95 whitespace-nowrap shadow-none shrink-0 w-full md:w-auto">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">upload_file</span>
+                Upload Document
+            </button>
+</div>
+<!-- Document Grid (Bento Layout) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter auto-rows-fr">
+<!-- Card 1: Primary Passport (Expiring Soon - Needs Attention) -->
+<div class="bg-surface-container border border-surface-variant rounded-lg p-6 flex flex-col relative overflow-hidden group col-span-1 md:col-span-2 lg:col-span-1 transition-all duration-200 hover:border-outline-variant">
+<!-- Red alert accent line -->
+<div class="absolute top-0 left-0 w-full h-1 bg-primary-container"></div>
+<div class="flex justify-between items-start mb-8">
+<div class="bg-background w-12 h-12 flex items-center justify-center rounded border border-surface-variant text-on-surface">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">badge</span>
+</div>
+<!-- Urgent Status Badge (Red) -->
+<div class="bg-primary-container text-on-primary-container font-label-md text-label-md uppercase px-3 py-1.5 rounded flex items-center gap-1.5 font-bold tracking-wider">
+<span class="material-symbols-outlined text-[14px]">warning</span>
+                        Expiring Soon
+                    </div>
+</div>
+<div class="mb-10 flex-grow">
+<h3 class="font-headline-lg text-headline-lg text-on-surface uppercase mb-2 tracking-tight">Primary Passport</h3>
+<div class="space-y-1">
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">fingerprint</span> ID: *******892
+                        </p>
+<p class="font-body-md text-body-md text-error flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">calendar_today</span> Exp: Oct 24, 2024
+                        </p>
+</div>
+</div>
+<div class="flex gap-4 border-t border-surface-variant pt-6 mt-auto">
+<!-- Secondary Button Style -->
+<button class="flex-1 bg-transparent border-2 border-primary-container text-primary-container font-label-lg text-label-lg uppercase py-3 rounded hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 text-center">
+                        View
+                    </button>
+<!-- Tertiary Action -->
+<button class="flex-1 bg-surface border border-surface-variant text-on-surface font-label-lg text-label-lg uppercase py-3 rounded hover:border-outline transition-colors active:scale-95 text-center">
+                        Update
+                    </button>
+</div>
+</div>
+<!-- Card 2: Work Visa (Ready to Share) -->
+<div class="bg-surface-container border border-surface-variant rounded-lg p-6 flex flex-col relative group transition-all duration-200 hover:border-outline-variant">
+<div class="flex justify-between items-start mb-8">
+<div class="bg-background w-12 h-12 flex items-center justify-center rounded border border-surface-variant text-on-surface">
+<span class="material-symbols-outlined text-[28px]">description</span>
+</div>
+<!-- Standby/Ready Status Badge (Neutral Dark) -->
+<div class="bg-surface-variant text-on-surface font-label-md text-label-md uppercase px-3 py-1.5 rounded flex items-center gap-1.5 tracking-wider">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                        Ready to Share
+                    </div>
+</div>
+<div class="mb-10 flex-grow">
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase mb-2 tracking-tight">Work Visa</h3>
+<div class="space-y-1">
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">public</span> Region: EU-Schengen
+                        </p>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">calendar_today</span> Exp: Jan 15, 2028
+                        </p>
+</div>
+</div>
+<div class="flex gap-4 border-t border-surface-variant pt-6 mt-auto">
+<button class="flex-1 bg-transparent border-2 border-primary-container text-primary-container font-label-lg text-label-lg uppercase py-3 rounded hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 text-center">
+                        View
+                    </button>
+<button class="flex-1 bg-surface border border-surface-variant text-on-surface font-label-lg text-label-lg uppercase py-3 rounded hover:border-outline transition-colors active:scale-95 text-center">
+                        Update
+                    </button>
+</div>
+</div>
+<!-- Card 3: Power of Attorney (Ready to Share) -->
+<div class="bg-surface-container border border-surface-variant rounded-lg p-6 flex flex-col relative group transition-all duration-200 hover:border-outline-variant">
+<div class="flex justify-between items-start mb-8">
+<div class="bg-background w-12 h-12 flex items-center justify-center rounded border border-surface-variant text-on-surface">
+<span class="material-symbols-outlined text-[28px]">gavel</span>
+</div>
+<!-- Standby/Ready Status Badge (Neutral Dark) -->
+<div class="bg-surface-variant text-on-surface font-label-md text-label-md uppercase px-3 py-1.5 rounded flex items-center gap-1.5 tracking-wider">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                        Ready to Share
+                    </div>
+</div>
+<div class="mb-10 flex-grow">
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase mb-2 tracking-tight">Power of Attorney</h3>
+<div class="space-y-1">
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">gpp_good</span> Status: Notarized
+                        </p>
+<p class="font-body-md text-body-md text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">domain</span> Entity: Global Inc.
+                        </p>
+</div>
+</div>
+<div class="flex gap-4 border-t border-surface-variant pt-6 mt-auto">
+<button class="flex-1 bg-transparent border-2 border-primary-container text-primary-container font-label-lg text-label-lg uppercase py-3 rounded hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 text-center">
+                        View
+                    </button>
+<button class="flex-1 bg-surface border border-surface-variant text-on-surface font-label-lg text-label-lg uppercase py-3 rounded hover:border-outline transition-colors active:scale-95 text-center">
+                        Update
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Visible only on Mobile, suppressed on Desktop) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-margin-mobile bg-surface-container border-t-2 border-outline-variant flat no shadows tonal layering">
+<!-- Panic (Inactive) -->
+<button class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded">
+<span class="material-symbols-outlined mb-1">emergency</span>
+<span class="font-label-lg text-label-lg uppercase">Panic</span>
+</button>
+<!-- Timer (Inactive) -->
+<button class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded">
+<span class="material-symbols-outlined mb-1">timer</span>
+<span class="font-label-lg text-label-lg uppercase">Timer</span>
+</button>
+<!-- Contacts (Inactive) -->
+<button class="flex flex-col items-center justify-center text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded">
+<span class="material-symbols-outlined mb-1">group</span>
+<span class="font-label-lg text-label-lg uppercase">Contacts</span>
+</button>
+<!-- Rights (Active - Mapped to Document Vault concept) -->
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-lg px-4 py-1 active:scale-90 transition-transform duration-100 ease-in-out shadow-none border-none">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">gavel</span>
+<span class="font-label-lg text-label-lg uppercase">Rights</span>
+</button>
+</nav>
+</body></html>

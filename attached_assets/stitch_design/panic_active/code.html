@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sentinel - Emergency Active</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#303030",
+                        "on-tertiary-fixed-variant": "#474746",
+                        "tertiary-fixed-dim": "#c8c6c5",
+                        "primary-fixed-dim": "#ffb3ae",
+                        "surface-container-lowest": "#0e0e0e",
+                        "on-error": "#690005",
+                        "surface-bright": "#393939",
+                        "primary": "#ffb3ae",
+                        "primary-fixed": "#ffdad7",
+                        "on-secondary-fixed": "#1a1c1c",
+                        "on-tertiary-fixed": "#1b1c1c",
+                        "background": "#131313",
+                        "on-background": "#e2e2e2",
+                        "inverse-primary": "#b3282c",
+                        "surface-variant": "#353535",
+                        "error": "#ffb4ab",
+                        "surface-container": "#1f1f1f",
+                        "surface-container-high": "#2a2a2a",
+                        "tertiary-container": "#929090",
+                        "tertiary-fixed": "#e5e2e1",
+                        "outline": "#a98987",
+                        "surface-dim": "#131313",
+                        "surface-container-low": "#1b1b1b",
+                        "on-primary-container": "#5c0009",
+                        "on-secondary-fixed-variant": "#454747",
+                        "on-surface": "#e2e2e2",
+                        "on-tertiary-container": "#2a2a2a",
+                        "secondary": "#c6c6c7",
+                        "secondary-container": "#454747",
+                        "secondary-fixed-dim": "#c6c6c7",
+                        "on-tertiary": "#303030",
+                        "on-primary": "#68000c",
+                        "surface": "#131313",
+                        "secondary-fixed": "#e2e2e2",
+                        "on-secondary": "#2f3131",
+                        "on-surface-variant": "#e1bebc",
+                        "primary-container": "#f85b58",
+                        "on-secondary-container": "#b4b5b5",
+                        "surface-tint": "#ffb3ae",
+                        "on-primary-fixed": "#410004",
+                        "outline-variant": "#59413f",
+                        "surface-container-highest": "#353535",
+                        "tertiary": "#c8c6c5",
+                        "error-container": "#93000a",
+                        "on-error-container": "#ffdad6",
+                        "inverse-surface": "#e2e2e2",
+                        "on-primary-fixed-variant": "#900a18"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "margin-desktop": "32px",
+                        "container-max": "1280px",
+                        "gutter": "16px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Atkinson Hyperlegible Next"],
+                        "body-lg": ["Atkinson Hyperlegible Next"],
+                        "label-md": ["Atkinson Hyperlegible Next"],
+                        "headline-md": ["Atkinson Hyperlegible Next"],
+                        "display-lg": ["Atkinson Hyperlegible Next"],
+                        "headline-lg": ["Atkinson Hyperlegible Next"],
+                        "label-lg": ["Atkinson Hyperlegible Next"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "700" }],
+                        "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Atkinson Hyperlegible Next', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex flex-col overflow-x-hidden">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-4 h-16 bg-background dark:bg-background border-b border-surface-variant dark:border-surface-variant docked full-width top-0 z-40 fixed">
+<div class="flex items-center gap-4 hover:bg-surface-container-high transition-colors active:scale-95 duration-75 p-2 rounded-full cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant">
+<img alt="User profile photo" class="w-full h-full object-cover" data-alt="A close-up, high-contrast black and white portrait of a person's face, well-lit to show features clearly against a dark background, fitting for a profile avatar in a clinical interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3cs6esKVO2hLUYIlVInff-LbE0zf8DmOID8yV_Dc1Dg6p4C-4Yd5KJ9bX8UyAT6Vp-D-6-Kx8odry44tWRrfHMKVX8GJ_v1Ld-MOoStX_DLqV3ZJZtE1K0N4TkLfVktl054WZvvS4mk3Ml1EIbhOk-aftkdPL9XNsMadFn82bceIz2MBsEbgR0FyhKIWyLq442_SMB7QIZll7r14JBFPC5SIX78a98PM6yr44rBzNhfjQ82ZSgP9D8OASa4UKqK6HqPSpHseu8qM"/>
+</div>
+</div>
+<div class="font-headline-md text-headline-md font-extrabold tracking-tighter text-primary-container dark:text-primary-container uppercase">
+            SENTINEL
+        </div>
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-surface-container-high transition-colors text-primary-container dark:text-primary-container active:scale-95 duration-75">
+<span class="material-symbols-outlined text-2xl">settings</span>
+</button>
+</header>
+<!-- Main Canvas -->
+<main class="pt-[80px] pb-[100px] px-margin-mobile md:px-margin-desktop w-full max-w-container-max mx-auto flex-grow flex flex-col gap-gutter">
+<!-- Emergency Banner (Simulated Flashing State via High Contrast) -->
+<div class="w-full bg-primary-container border-2 border-primary-container rounded-DEFAULT p-4 flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(248,91,88,0.3)]">
+<span class="material-symbols-outlined text-on-primary-container text-headline-lg" style="font-variation-settings: 'FILL' 1;">warning</span>
+<h1 class="font-headline-md text-headline-md text-on-primary-container uppercase tracking-widest m-0">EMERGENCY ACTIVE</h1>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Audio Recording Status Card -->
+<div class="col-span-1 md:col-span-4 bg-surface-container-low border border-primary-container rounded-lg p-6 flex flex-col justify-between items-center text-center">
+<div class="w-16 h-16 rounded-full bg-primary-container/20 border-2 border-primary-container flex items-center justify-center mb-4 relative">
+<span class="material-symbols-outlined text-primary-container text-headline-lg" style="font-variation-settings: 'FILL' 1;">mic</span>
+<div class="absolute top-0 right-0 w-3 h-3 bg-primary-container rounded-full border border-surface-container-low"></div>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1">Live Audio</h2>
+<p class="font-label-md text-label-md text-primary-container uppercase tracking-widest">Recording &amp; Transmitting</p>
+</div>
+<div class="mt-4 font-display-lg text-display-lg text-on-surface tabular-nums">
+                    02:41
+                </div>
+</div>
+<!-- Map Location Card -->
+<div class="col-span-1 md:col-span-8 bg-surface-container-low border border-surface-variant rounded-lg overflow-hidden relative min-h-[250px] md:min-h-full">
+<div class="absolute inset-0 bg-surface-variant animate-pulse"></div>
+<img alt="Live Map Location" class="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-luminosity" data-alt="A highly detailed, tactical digital map interface displaying a live location grid. The map uses a strict dark mode, high-contrast color palette with deep blacks, dark grays, and a stark red crosshair or path indicating current position. The visual style is clinical, modern, and serious, resembling an emergency dispatch or command center screen. No extraneous visual noise, just clear streets and tactical coordinates." data-location="Live Urban Grid" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBK7VfluOSdXXAygDOUPJBXNYUWre_C14u5rcWbKIzdL2iOyDBPUNv81Svzj-OMAuT94p7aTJu_ejbeUuNFPhliECZvSyjOegvFcWoJx5yEvC2pK67Zpn_ELsmU-ejyMlpDG9Z3u8wpC4kDq9OUh3iVHvi8i-uUVoh-D8y34wCOV57vnhmvGq-ScgKwiXqXaNqG2XvOzKZjMqfJ_ElotMOg9bXEUL5kfCT-8UfxdxpbOK0gfKl1NSxqk8fU8rUA2hH8zrWqH1Owxmo"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-background/50"></div>
+<div class="absolute top-4 left-4 bg-background border border-surface-variant rounded px-3 py-2 flex items-center gap-2 backdrop-blur-sm">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">my_location</span>
+<span class="font-label-md text-label-md text-on-surface uppercase">Tracking Active</span>
+</div>
+<!-- Simulated Location Pin -->
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="w-12 h-12 rounded-full border-4 border-primary-container bg-primary-container/20 flex items-center justify-center backdrop-blur-md">
+<div class="w-3 h-3 bg-primary-container rounded-full"></div>
+</div>
+<div class="w-1 h-8 bg-primary-container/50"></div>
+</div>
+<div class="absolute bottom-4 left-4 right-4 bg-surface-container-high border border-surface-variant rounded p-3 flex justify-between items-center">
+<div class="font-body-md text-body-md text-on-surface truncate">
+                        41.40338, 2.17403
+                    </div>
+<div class="font-label-md text-label-md text-secondary uppercase">
+                        ± 5 Meters
+                    </div>
+</div>
+</div>
+<!-- Dispatch Status List -->
+<div class="col-span-1 md:col-span-12 bg-surface-container-low border border-surface-variant rounded-lg p-6">
+<div class="flex items-center gap-2 mb-6 border-b border-surface-variant pb-4">
+<span class="material-symbols-outlined text-secondary">cell_tower</span>
+<h3 class="font-headline-md text-headline-md text-on-surface uppercase tracking-wider">Dispatch Status</h3>
+</div>
+<ul class="flex flex-col gap-4">
+<!-- Status Item 1: Actioned -->
+<li class="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 bg-surface-container rounded border border-surface-variant">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface">local_police</span>
+</div>
+<div>
+<div class="font-body-md text-body-md text-on-surface font-bold">Primary Responder Hub</div>
+<div class="font-label-md text-label-md text-secondary">ID: 994-Alpha</div>
+</div>
+</div>
+<div class="bg-primary-container text-on-primary-container px-3 py-1 rounded font-label-md text-label-md uppercase tracking-wider inline-flex items-center gap-2 self-start md:self-auto border border-primary-container">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            Notified
+                        </div>
+</li>
+<!-- Status Item 2: Actioned -->
+<li class="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 bg-surface-container rounded border border-surface-variant">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface">person</span>
+</div>
+<div>
+<div class="font-body-md text-body-md text-on-surface font-bold">Emergency Contact 1</div>
+<div class="font-label-md text-label-md text-secondary">Sarah Connor</div>
+</div>
+</div>
+<div class="bg-primary-container text-on-primary-container px-3 py-1 rounded font-label-md text-label-md uppercase tracking-wider inline-flex items-center gap-2 self-start md:self-auto border border-primary-container">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+                            SMS Sent
+                        </div>
+</li>
+<!-- Status Item 3: Pending -->
+<li class="flex flex-col md:flex-row md:items-center justify-between gap-3 p-4 bg-surface-container rounded border border-surface-variant">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center border border-outline-variant text-secondary">
+<span class="material-symbols-outlined">video_camera_front</span>
+</div>
+<div>
+<div class="font-body-md text-body-md text-secondary font-bold">Live Video Feed</div>
+<div class="font-label-md text-label-md text-secondary">Establishing Connection...</div>
+</div>
+</div>
+<div class="bg-surface-variant text-on-surface px-3 py-1 rounded font-label-md text-label-md uppercase tracking-wider inline-flex items-center gap-2 self-start md:self-auto border border-outline-variant">
+<span class="material-symbols-outlined text-[16px] animate-spin">sync</span>
+                            Pending
+                        </div>
+</li>
+</ul>
+</div>
+<!-- Disarm Section -->
+<div class="col-span-1 md:col-span-12 bg-surface-container-highest border border-surface-variant rounded-lg p-6 mt-4 flex flex-col items-center">
+<div class="flex flex-col items-center mb-6 w-full max-w-md">
+<label class="font-label-md text-label-md text-secondary uppercase tracking-widest mb-2 text-center w-full" for="disarm-pin">Enter PIN to Cancel Alert</label>
+<input class="w-full bg-background border border-surface-variant text-center font-display-lg text-display-lg text-on-surface tracking-[0.5em] py-4 rounded focus:ring-2 focus:ring-primary-container focus:border-primary-container outline-none transition-all placeholder:text-surface-variant" id="disarm-pin" maxlength="4" placeholder="••••" type="password"/>
+</div>
+<button class="w-full max-w-md bg-surface-container border-2 border-primary-container text-primary-container font-headline-md text-headline-md uppercase py-4 rounded hover:bg-primary-container hover:text-on-primary-container transition-colors active:scale-95 duration-100 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">shield_lock</span>
+                    DISARM SYSTEM
+                </button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-20 px-margin-mobile bg-surface-container dark:bg-surface-container border-t-2 border-outline-variant dark:border-outline-variant md:hidden">
+<!-- Active Tab: Panic -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary-container text-on-primary-container dark:text-on-primary-container rounded-lg px-4 py-1 active:scale-90 transition-transform duration-100 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">emergency</span>
+<span class="font-label-lg text-label-lg uppercase mt-1">Panic</span>
+</a>
+<!-- Inactive Tab: Timer -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">timer</span>
+<span class="font-label-lg text-label-lg uppercase mt-1">Timer</span>
+</a>
+<!-- Inactive Tab: Contacts -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-lg text-label-lg uppercase mt-1">Contacts</span>
+</a>
+<!-- Inactive Tab: Rights -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary px-4 py-1 hover:bg-surface-container-highest transition-colors active:scale-90 duration-100 ease-in-out rounded-lg" href="#">
+<span class="material-symbols-outlined">gavel</span>
+<span class="font-label-lg text-label-lg uppercase mt-1">Rights</span>
+</a>
+</nav>
+<!-- Desktop Navigation Overlay (Hidden on Mobile, fulfills semantic shell requirement for desktop if needed, though prompt implies mobile-first emergency app. Replicating bottom nav links to side or top is standard, but strict JSON provided BottomNavBar for md:hidden equivalent. I will assume TopAppBar handles desktop primary navigation context in this specific hybrid requirement). -->
+</body></html>
